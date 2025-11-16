@@ -28,10 +28,24 @@ CREATE TABLE IF NOT EXISTS items (
     qty         INTEGER NOT NULL DEFAULT 0,
     unit_price  REAL,
     note        TEXT,
+    shape_type  TEXT NOT NULL DEFAULT 'box',
     created_at  TEXT,
     updated_at  TEXT
 );
 ");
+
+// 若舊版資料庫沒有 shape_type 欄位，就補上
+$columns = $pdo->query("PRAGMA table_info(items)")->fetchAll(PDO::FETCH_ASSOC);
+$hasShapeColumn = false;
+foreach ($columns as $col) {
+    if (($col['name'] ?? '') === 'shape_type') {
+        $hasShapeColumn = true;
+        break;
+    }
+}
+if (!$hasShapeColumn) {
+    $pdo->exec("ALTER TABLE items ADD COLUMN shape_type TEXT NOT NULL DEFAULT 'box'");
+}
 
 // 建 withdrawals 表（領料紀錄）
 $pdo->exec("

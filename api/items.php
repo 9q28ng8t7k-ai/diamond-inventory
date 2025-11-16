@@ -26,7 +26,7 @@ if ($method === 'POST') {
         json_response(['error' => 'Invalid JSON'], 400);
     }
 
-    $id        = isset($data['id']) ? (int)$data['id'] : 0; // 目前前端不會傳 id，就當預留
+    $id        = isset($data['id']) ? (int)$data['id'] : 0;
     $vendor    = trim($data['vendor'] ?? '');
     $sizeStr   = trim($data['size_str'] ?? '');
     $length    = (float)($data['length'] ?? 0);
@@ -38,11 +38,19 @@ if ($method === 'POST') {
         $unitPrice = (float)$data['unit_price'];
     }
     $note      = trim($data['note'] ?? '');
+    $shapeType = $data['shape_type'] ?? 'box';
 
     $errors = [];
     if ($vendor === '') $errors[] = 'vendor required';
     if ($sizeStr === '') $errors[] = 'size_str required';
-    if ($length <= 0 || $width <= 0 || $height <= 0) $errors[] = 'invalid dimension';
+    if (!in_array($shapeType, ['box', 'cylinder'], true)) $shapeType = 'box';
+    if ($shapeType === 'box') {
+        if ($length <= 0 || $width <= 0 || $height <= 0) $errors[] = 'invalid dimension';
+    } else {
+        if ($length <= 0 || $height <= 0) $errors[] = 'invalid dimension';
+        // 圓柱時 width 與 length 同值
+        $width = $length;
+    }
     if ($qty < 0) $errors[] = 'qty must be >= 0';
 
     if ($errors) {
@@ -63,6 +71,7 @@ if ($method === 'POST') {
                 qty        = :qty,
                 unit_price = :unit_price,
                 note       = :note,
+                shape_type = :shape_type,
                 updated_at = :updated_at
             WHERE id = :id
         ");
@@ -75,6 +84,7 @@ if ($method === 'POST') {
             ':qty'        => $qty,
             ':unit_price' => $unitPrice,
             ':note'       => $note,
+            ':shape_type' => $shapeType,
             ':updated_at' => $now,
             ':id'         => $id,
         ]);
@@ -82,9 +92,9 @@ if ($method === 'POST') {
         // 新增
         $stmt = $db->prepare("
             INSERT INTO items
-            (vendor, size_str, length, width, height, qty, unit_price, note, created_at, updated_at)
+            (vendor, size_str, length, width, height, qty, unit_price, note, shape_type, created_at, updated_at)
             VALUES
-            (:vendor, :size_str, :length, :width, :height, :qty, :unit_price, :note, :created_at, :updated_at)
+            (:vendor, :size_str, :length, :width, :height, :qty, :unit_price, :note, :shape_type, :created_at, :updated_at)
         ");
         $stmt->execute([
             ':vendor'     => $vendor,
@@ -95,6 +105,7 @@ if ($method === 'POST') {
             ':qty'        => $qty,
             ':unit_price' => $unitPrice,
             ':note'       => $note,
+            ':shape_type' => $shapeType,
             ':created_at' => $now,
             ':updated_at' => $now,
         ]);

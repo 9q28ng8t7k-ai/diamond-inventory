@@ -87,6 +87,55 @@
       display: flex;
       gap: 12px;
     }
+    .shape-options {
+      display: inline-flex;
+      gap: 16px;
+      font-size: 12px;
+      color: #374151;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .shape-options label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .shape-options input {
+      accent-color: #2563eb;
+    }
+    .dim-inline {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .dim-inline span.symbol {
+      font-size: 13px;
+      color: #6b7280;
+    }
+    .dimension-field input {
+      width: 90px;
+      text-align: center;
+    }
+    .edit-indicator {
+      background: #fef9c3;
+      color: #854d0e;
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .edit-indicator strong {
+      font-weight: 600;
+    }
+    .edit-actions {
+      display: flex;
+      gap: 6px;
+    }
     form label {
       font-size: 12px;
       color: #4b5563;
@@ -230,7 +279,7 @@
     #three-container {
       position: relative;
       width: 100%;
-      height: 260px;
+      height: clamp(320px, 60vh, 520px);
       border-radius: 14px;
       background: radial-gradient(circle at top left, #eff6ff, #e5e7eb);
       overflow: hidden;
@@ -268,6 +317,10 @@
     }
     .log-item .purpose {
       color: #374151;
+    }
+    .log-actions {
+      display: flex;
+      gap: 6px;
     }
 
     .badge {
@@ -307,19 +360,46 @@
   <section class="left card">
     <div class="card-title">
       <span>新增 / 編輯原料</span>
-      <span class="sub">尺寸格式：例如 <code>3.5x3.5x1.0</code> 或 <code>6x3x1</code></span>
+      <span class="sub">長方體填 L×W×H，圓柱填 Ø×H（單位 mm，可輸入小數）</span>
     </div>
 
     <form id="add-form">
       <div class="inline-fields">
-        <div class="field">
+        <div class="field" style="flex:1;">
           <label>廠商 <span class="req">*</span></label>
           <input id="f-vendor" type="text" required placeholder="例如：ABC Diamonds" />
         </div>
-        <div class="field">
-          <label>尺寸 L×W×H <span class="req">*</span></label>
-          <input id="f-size" type="text" required placeholder="3.5x3.5x1.0" />
+        <div class="field" style="flex:1;">
+          <label>形狀</label>
+          <div class="shape-options">
+            <label><input type="radio" name="f-shape" value="box" checked /> 長方體</label>
+            <label><input type="radio" name="f-shape" value="cylinder" /> 圓柱</label>
+          </div>
         </div>
+      </div>
+
+      <div class="field dimension-field" data-shape="box">
+        <label>長方體尺寸（L×W×H） <span class="req">*</span></label>
+        <div class="dim-inline">
+          <input id="f-length" type="number" min="0" step="0.01" placeholder="長 L" />
+          <span class="symbol">×</span>
+          <input id="f-width" type="number" min="0" step="0.01" placeholder="寬 W" />
+          <span class="symbol">×</span>
+          <input id="f-height" type="number" min="0" step="0.01" placeholder="高 H" />
+        </div>
+        <div class="hint">範例：3.5 × 3.5 × 1.0</div>
+      </div>
+
+      <div class="field dimension-field" data-shape="cylinder" style="display:none;">
+        <label>圓柱尺寸（Ø×H） <span class="req">*</span></label>
+        <div class="dim-inline">
+          <span class="symbol">Ø</span>
+          <input id="f-diameter" type="number" min="0" step="0.01" placeholder="直徑" />
+          <span class="symbol">×</span>
+          <span class="symbol">H</span>
+          <input id="f-height-cylinder" type="number" min="0" step="0.01" placeholder="高度" />
+        </div>
+        <div class="hint">範例：2.2Ø × 1.0</div>
       </div>
 
       <div class="inline-fields" style="margin-top:4px;">
@@ -347,6 +427,13 @@
       </div>
 
       <div class="error" id="add-error" style="display:none;"></div>
+      <div class="edit-indicator" id="edit-indicator" style="display:none;">
+        <span>目前編輯：<strong id="edit-target"></strong></span>
+        <div class="edit-actions">
+          <button type="button" class="outline" id="btn-cancel-edit">取消</button>
+          <button type="button" class="danger" id="btn-delete-current">刪除這批</button>
+        </div>
+      </div>
     </form>
 
     <div class="card" style="margin-top:8px; padding:10px 12px 12px;">
@@ -441,22 +528,61 @@
   // ===== 全域狀態 =====
   let items = [];
   let selectedId = null;
+  let editingItemId = null;
 
   let scene = null;
   let camera = null;
   let renderer = null;
-  let boxMesh = null;
+  let shapeMesh = null;
   let threeContainer = null;
 
   // ===== 小工具 =====
-  function parseSize(str) {
-    if (!str) return null;
-    const s = str.toLowerCase().replace(/×/g, 'x');
-    const parts = s.split('x').map(p => p.trim()).filter(Boolean);
-    if (parts.length !== 3) return null;
-    const nums = parts.map(Number);
-    if (nums.some(n => !isFinite(n) || n <= 0)) return null;
-    return { length: nums[0], width: nums[1], height: nums[2] };
+  function getSelectedShape() {
+    const radio = document.querySelector('input[name="f-shape"]:checked');
+    return radio ? radio.value : 'box';
+  }
+
+  function updateDimensionFieldsVisibility() {
+    const shape = getSelectedShape();
+    document.querySelectorAll('.dimension-field').forEach(field => {
+      field.style.display = field.dataset.shape === shape ? 'block' : 'none';
+    });
+  }
+
+  function formatDimensionValue(num) {
+    if (!isFinite(num)) return '';
+    let str = Number(num).toFixed(3);
+    str = str.replace(/0+$/, '');
+    str = str.replace(/\.$/, '');
+    return str || '0';
+  }
+
+  function readDimensionsFromForm() {
+    const shape = getSelectedShape();
+    if (shape === 'cylinder') {
+      const diameter = Number(document.getElementById('f-diameter').value);
+      const height = Number(document.getElementById('f-height-cylinder').value);
+      if (!isFinite(diameter) || diameter <= 0 || !isFinite(height) || height <= 0) return null;
+      return {
+        shapeType: 'cylinder',
+        length: diameter,
+        width: diameter,
+        height: height,
+        sizeStr: `${formatDimensionValue(diameter)}Øx${formatDimensionValue(height)}`
+      };
+    } else {
+      const length = Number(document.getElementById('f-length').value);
+      const width = Number(document.getElementById('f-width').value);
+      const height = Number(document.getElementById('f-height').value);
+      if (!isFinite(length) || length <= 0 || !isFinite(width) || width <= 0 || !isFinite(height) || height <= 0) return null;
+      return {
+        shapeType: 'box',
+        length,
+        width,
+        height,
+        sizeStr: `${formatDimensionValue(length)}x${formatDimensionValue(width)}x${formatDimensionValue(height)}`
+      };
+    }
   }
 
   function formatDateTime(raw) {
@@ -511,11 +637,11 @@
     return await res.json();
   }
 
-  async function apiUpdateWithdrawPurpose(id, purpose) {
+  async function apiUpdateWithdraw(id, qty, purpose) {
     const res = await fetch('/api/withdraw.php', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: id, purpose: purpose })
+      body: JSON.stringify({ id: id, qty: qty, purpose: purpose })
     });
     if (!res.ok) {
       const txt = await res.text().catch(() => '');
@@ -524,9 +650,24 @@
     return await res.json();
   }
 
+  async function apiDeleteWithdraw(id) {
+    const res = await fetch('/api/withdraw.php?id=' + encodeURIComponent(id), {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error('DELETE /api/withdraw.php failed: ' + txt);
+    }
+    return await res.json();
+  }
+
   async function refreshItemsFromServer() {
     items = await apiListItems();
     renderList();
+    if (editingItemId && !items.find(x => x.id === editingItemId)) {
+      editingItemId = null;
+      clearForm();
+    }
     if (selectedId && !items.find(x => x.id === selectedId)) {
       selectedId = null;
     }
@@ -584,24 +725,32 @@
     renderer.setSize(w, h);
   }
 
-  function setBoxSize(L, W, H) {
+  function setShapeGeometry(shapeType, dims) {
     if (!scene || !THREE) return;
 
-    if (boxMesh) {
-      scene.remove(boxMesh);
-      boxMesh.geometry.dispose();
-      boxMesh.material.dispose();
-      boxMesh = null;
+    if (shapeMesh) {
+      scene.remove(shapeMesh);
+      shapeMesh.geometry.dispose();
+      shapeMesh.material.dispose();
+      shapeMesh = null;
     }
 
-    // 1 mm 對應 0.2 個單位，2~10mm 都能在固定視角下看出大小差異
-    const mmScale = 0.2;
+    if (!dims) return;
 
-    const geo = new THREE.BoxGeometry(
-      L * mmScale,
-      H * mmScale,
-      W * mmScale
-    );
+    const mmScale = 0.2;
+    let geometry = null;
+
+    if (shapeType === 'cylinder') {
+      const radius = Math.max((Number(dims.length) / 2) * mmScale, 0.05);
+      const height = Math.max(Number(dims.height) * mmScale, 0.05);
+      geometry = new THREE.CylinderGeometry(radius, radius, height, 48);
+    } else {
+      geometry = new THREE.BoxGeometry(
+        Math.max(Number(dims.length) * mmScale, 0.05),
+        Math.max(Number(dims.height) * mmScale, 0.05),
+        Math.max(Number(dims.width) * mmScale, 0.05)
+      );
+    }
 
     const mat = new THREE.MeshPhongMaterial({
       color: 0x3b82f6,
@@ -609,9 +758,9 @@
       opacity: 0.9
     });
 
-    boxMesh = new THREE.Mesh(geo, mat);
-    boxMesh.rotation.set(0.4, -0.6, 0);
-    scene.add(boxMesh);
+    shapeMesh = new THREE.Mesh(geometry, mat);
+    shapeMesh.rotation.set(0.4, -0.6, 0);
+    scene.add(shapeMesh);
   }
 
   function animate() {
@@ -669,16 +818,36 @@
 
       const tdActions = document.createElement('td');
       tdActions.className = 'actions';
+      const btnEdit = document.createElement('button');
+      btnEdit.type = 'button';
+      btnEdit.textContent = '編輯';
+      btnEdit.className = 'outline';
+      btnEdit.style.marginRight = '6px';
+      btnEdit.dataset.action = 'edit';
+      btnEdit.addEventListener('click', e => {
+        e.stopPropagation();
+        selectedId = it.id;
+        loadItemToForm(it);
+        renderList();
+        renderSelected();
+      });
+      tdActions.appendChild(btnEdit);
+
       const btnDel = document.createElement('button');
       btnDel.type = 'button';
       btnDel.textContent = '刪除';
       btnDel.className = 'danger';
       btnDel.dataset.action = 'delete';
-      btnDel.addEventListener('click', async () => {
+      btnDel.addEventListener('click', async e => {
+        e.stopPropagation();
         if (!confirm(`確定刪除【${it.vendor}】尺寸 ${it.size_str} 這一批？領料紀錄也會一起刪除。`)) return;
         try {
           await apiDeleteItem(it.id);
           if (selectedId === it.id) selectedId = null;
+          if (editingItemId === it.id) {
+            editingItemId = null;
+            clearForm();
+          }
           await refreshItemsFromServer();
         } catch (e2) {
           alert('刪除失敗：' + e2.message);
@@ -704,23 +873,24 @@
     const it = items.find(x => x.id === selectedId);
     if (!it) {
       titleEl.textContent = '尚未選擇批次';
-      dimSpan.textContent = 'L×W×H：-';
+      dimSpan.textContent = '尺寸：-';
       infoVendor.textContent = '-';
       infoQty.textContent = '-';
       infoPrice.textContent = '-';
       infoNote.textContent = '-';
       logList.innerHTML = '<div class="empty">尚無領料紀錄。</div>';
-      if (boxMesh && scene) {
-        scene.remove(boxMesh);
-        boxMesh.geometry.dispose();
-        boxMesh.material.dispose();
-        boxMesh = null;
+      if (shapeMesh && scene) {
+        scene.remove(shapeMesh);
+        shapeMesh.geometry.dispose();
+        shapeMesh.material.dispose();
+        shapeMesh = null;
       }
       return;
     }
 
     titleEl.textContent = it.vendor + '｜' + it.size_str;
-    dimSpan.innerHTML = 'L×W×H：<code>' + it.size_str + '</code>';
+    const dimLabel = (it.shape_type === 'cylinder') ? 'Ø×H' : 'L×W×H';
+    dimSpan.innerHTML = dimLabel + '：<code>' + it.size_str + '</code>';
     infoVendor.textContent = it.vendor;
     infoQty.textContent = it.qty + ' 塊';
 
@@ -733,7 +903,11 @@
     infoNote.textContent = it.note || '-';
 
     if (it.length && it.width && it.height) {
-      setBoxSize(Number(it.length), Number(it.width), Number(it.height));
+      setShapeGeometry(it.shape_type || 'box', {
+        length: Number(it.length),
+        width: Number(it.width),
+        height: Number(it.height)
+      });
     }
 
     // 領料紀錄
@@ -749,40 +923,77 @@
           const timeStr = formatDateTime(log.created_at);
           const purposeText = log.purpose || '未填用途';
 
-          div.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <span class="time">${timeStr}</span>
-              <button type="button"
-                      class="outline"
-                      style="font-size:10px;padding:2px 8px;border-radius:999px;"
-                      data-edit-withdraw-id="${log.id}">
-                編輯
-              </button>
-            </div>
-            <div>
-              <span class="qty">領出 ${log.qty} 塊</span>
-              <span class="purpose">｜${purposeText}</span>
-            </div>
-          `;
-          logList.appendChild(div);
-        });
+          const header = document.createElement('div');
+          header.style.display = 'flex';
+          header.style.justifyContent = 'space-between';
+          header.style.alignItems = 'center';
+          const timeSpan = document.createElement('span');
+          timeSpan.className = 'time';
+          timeSpan.textContent = timeStr;
+          header.appendChild(timeSpan);
 
-        // 綁定每個「編輯」按鈕
-        logList.querySelectorAll('button[data-edit-withdraw-id]').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const id = Number(btn.getAttribute('data-edit-withdraw-id'));
-            const parent = btn.closest('.log-item');
-            const spanPurpose = parent.querySelector('.purpose');
-            const current = spanPurpose ? spanPurpose.textContent.replace(/^｜/, '') : '';
-            const updated = window.prompt('修改用途說明：', current);
-            if (updated === null) return; // 取消
+          const actions = document.createElement('div');
+          actions.className = 'log-actions';
+
+          const btnEdit = document.createElement('button');
+          btnEdit.type = 'button';
+          btnEdit.className = 'outline';
+          btnEdit.style.fontSize = '10px';
+          btnEdit.style.padding = '2px 8px';
+          btnEdit.style.borderRadius = '999px';
+          btnEdit.textContent = '編輯';
+          btnEdit.addEventListener('click', async () => {
+            const qtyStr = window.prompt('修改領出數量：', log.qty);
+            if (qtyStr === null) return;
+            const newQty = Number(qtyStr);
+            if (!Number.isInteger(newQty) || newQty <= 0) {
+              alert('領出數量必須是正整數。');
+              return;
+            }
+            const newPurpose = window.prompt('修改用途說明（可留空）：', log.purpose || '');
+            if (newPurpose === null) return;
             try {
-              await apiUpdateWithdrawPurpose(id, updated);
-              await renderSelected(); // 重畫這一塊
+              await apiUpdateWithdraw(log.id, newQty, newPurpose.trim());
+              await refreshItemsFromServer();
             } catch (e2) {
               alert('更新失敗：' + e2.message);
             }
           });
+
+          const btnDel = document.createElement('button');
+          btnDel.type = 'button';
+          btnDel.className = 'danger';
+          btnDel.style.fontSize = '10px';
+          btnDel.style.padding = '2px 8px';
+          btnDel.style.borderRadius = '999px';
+          btnDel.textContent = '撤回';
+          btnDel.addEventListener('click', async () => {
+            if (!confirm(`確定撤回 ${log.qty} 塊的領料紀錄？`)) return;
+            try {
+              await apiDeleteWithdraw(log.id);
+              await refreshItemsFromServer();
+            } catch (e2) {
+              alert('撤回失敗：' + e2.message);
+            }
+          });
+
+          actions.appendChild(btnEdit);
+          actions.appendChild(btnDel);
+          header.appendChild(actions);
+          div.appendChild(header);
+
+          const body = document.createElement('div');
+          const qtySpan = document.createElement('span');
+          qtySpan.className = 'qty';
+          qtySpan.textContent = `領出 ${log.qty} 塊`;
+          const purposeSpan = document.createElement('span');
+          purposeSpan.className = 'purpose';
+          purposeSpan.textContent = '｜' + purposeText;
+          body.appendChild(qtySpan);
+          body.appendChild(purposeSpan);
+          div.appendChild(body);
+
+          logList.appendChild(div);
         });
       }
     } catch (e) {
@@ -793,13 +1004,59 @@
   // ===== 表單處理 =====
   function clearForm() {
     document.getElementById('f-vendor').value = '';
-    document.getElementById('f-size').value = '';
+    document.getElementById('f-length').value = '';
+    document.getElementById('f-width').value = '';
+    document.getElementById('f-height').value = '';
+    document.getElementById('f-diameter').value = '';
+    document.getElementById('f-height-cylinder').value = '';
     document.getElementById('f-qty').value = '1';
     document.getElementById('f-price').value = '';
     document.getElementById('f-note').value = '';
     const err = document.getElementById('add-error');
     err.style.display = 'none';
     err.textContent = '';
+    const indicator = document.getElementById('edit-indicator');
+    indicator.style.display = 'none';
+    document.getElementById('edit-target').textContent = '';
+    document.getElementById('btn-add').textContent = '儲存批次';
+    const defaultShape = document.querySelector('input[name="f-shape"][value="box"]');
+    if (defaultShape) defaultShape.checked = true;
+    updateDimensionFieldsVisibility();
+    editingItemId = null;
+  }
+
+  function loadItemToForm(item) {
+    if (!item) return;
+    document.getElementById('f-vendor').value = item.vendor || '';
+    document.getElementById('f-qty').value = Number(item.qty);
+    document.getElementById('f-price').value = item.unit_price != null ? item.unit_price : '';
+    document.getElementById('f-note').value = item.note || '';
+
+    const shape = item.shape_type === 'cylinder' ? 'cylinder' : 'box';
+    document.querySelectorAll('input[name="f-shape"]').forEach(radio => {
+      radio.checked = radio.value === shape;
+    });
+    updateDimensionFieldsVisibility();
+
+    if (shape === 'cylinder') {
+      document.getElementById('f-diameter').value = item.length || '';
+      document.getElementById('f-height-cylinder').value = item.height || '';
+      document.getElementById('f-length').value = '';
+      document.getElementById('f-width').value = '';
+      document.getElementById('f-height').value = '';
+    } else {
+      document.getElementById('f-length').value = item.length || '';
+      document.getElementById('f-width').value = item.width || '';
+      document.getElementById('f-height').value = item.height || '';
+      document.getElementById('f-diameter').value = '';
+      document.getElementById('f-height-cylinder').value = '';
+    }
+
+    editingItemId = item.id;
+    const indicator = document.getElementById('edit-indicator');
+    indicator.style.display = 'flex';
+    document.getElementById('edit-target').textContent = `${item.vendor}｜${item.size_str}`;
+    document.getElementById('btn-add').textContent = '更新批次';
   }
 
   async function handleSaveItem(e) {
@@ -809,7 +1066,6 @@
     err.textContent = '';
 
     const vendor = document.getElementById('f-vendor').value.trim();
-    const sizeStr = document.getElementById('f-size').value.trim();
     const qty = Number(document.getElementById('f-qty').value);
     const priceStr = document.getElementById('f-price').value;
     const note = document.getElementById('f-note').value.trim();
@@ -819,9 +1075,9 @@
       err.style.display = 'block';
       return;
     }
-    const size = parseSize(sizeStr);
-    if (!size) {
-      err.textContent = '尺寸格式錯誤，請用 LxWxH，例如 6x3x1。';
+    const dimensions = readDimensionsFromForm();
+    if (!dimensions) {
+      err.textContent = '請輸入正確的尺寸。';
       err.style.display = 'block';
       return;
     }
@@ -844,14 +1100,18 @@
 
     const payload = {
       vendor: vendor,
-      size_str: sizeStr,
-      length: size.length,
-      width: size.width,
-      height: size.height,
+      size_str: dimensions.sizeStr,
+      length: dimensions.length,
+      width: dimensions.width,
+      height: dimensions.height,
+      shape_type: dimensions.shapeType,
       qty: qty,
       unit_price: unitPrice,
       note: note
     };
+    if (editingItemId) {
+      payload.id = editingItemId;
+    }
 
     try {
       const saved = await apiSaveItem(payload);
@@ -861,6 +1121,22 @@
     } catch (e2) {
       err.textContent = '儲存失敗：' + e2.message;
       err.style.display = 'block';
+    }
+  }
+
+  async function handleDeleteCurrentItem() {
+    if (!editingItemId) return;
+    const current = items.find(x => x.id === editingItemId);
+    const label = current ? `【${current.vendor}】尺寸 ${current.size_str}` : '這一批';
+    if (!confirm(`確定刪除 ${label}？領料紀錄也會一併刪除。`)) return;
+    try {
+      await apiDeleteItem(editingItemId);
+      if (selectedId === editingItemId) selectedId = null;
+      editingItemId = null;
+      clearForm();
+      await refreshItemsFromServer();
+    } catch (e) {
+      alert('刪除失敗：' + e.message);
     }
   }
 
@@ -910,7 +1186,13 @@
 
     document.getElementById('add-form').addEventListener('submit', handleSaveItem);
     document.getElementById('btn-clear-form').addEventListener('click', clearForm);
+    document.getElementById('btn-cancel-edit').addEventListener('click', clearForm);
+    document.getElementById('btn-delete-current').addEventListener('click', handleDeleteCurrentItem);
     document.getElementById('withdraw-form').addEventListener('submit', handleWithdraw);
+    document.querySelectorAll('input[name="f-shape"]').forEach(radio => {
+      radio.addEventListener('change', updateDimensionFieldsVisibility);
+    });
+    updateDimensionFieldsVisibility();
 
     try {
       await refreshItemsFromServer();
