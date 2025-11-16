@@ -75,6 +75,8 @@ if ($method === 'POST') {
         ':id'         => $itemId,
     ]);
 
+    refresh_archive_status($db, $itemId);
+
     $db->commit();
     json_response(['ok' => true]);
 }
@@ -139,6 +141,7 @@ if ($method === 'PUT') {
                 ':id'         => $itemId,
             ]);
         }
+        refresh_archive_status($db, $itemId);
     }
 
     $stmt = $db->prepare("
@@ -184,9 +187,41 @@ if ($method === 'DELETE') {
     $stmt = $db->prepare("DELETE FROM withdrawals WHERE id = :id");
     $stmt->execute([':id' => $id]);
 
+    refresh_archive_status($db, $itemId);
+
     $db->commit();
 
     json_response(['ok' => true]);
 }
 
 json_response(['error' => 'Method not allowed'], 405);
+
+function refresh_archive_status(PDO $db, int $itemId): void
+{
+    $stmt = $db->prepare("SELECT qty, is_archived, depleted_at FROM items WHERE id = :id");
+    $stmt->execute([':id' => $itemId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return;
+    }
+
+    $qty = (int)$row['qty'];
+    if ($qty <= 0) {
+        $depletedAt = $row['depleted_at'] ?? null;
+        if (!$depletedAt) {
+            $depletedAt = gmdate('Y-m-d H:i:s');
+        }
+        if ((int)$row['is_archived'] !== 1 || $row['depleted_at'] !== $depletedAt) {
+            $stmt = $db->prepare("UPDATE items SET is_archived = 1, depleted_at = :depleted_at WHERE id = :id");
+            $stmt->execute([
+                ':depleted_at' => $depletedAt,
+                ':id'          => $itemId,
+            ]);
+        }
+    } else {
+        if ((int)$row['is_archived'] !== 0 || $row['depleted_at'] !== null) {
+            $stmt = $db->prepare("UPDATE items SET is_archived = 0, depleted_at = NULL WHERE id = :id");
+            $stmt->execute([':id' => $itemId]);
+        }
+    }
+}

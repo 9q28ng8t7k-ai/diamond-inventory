@@ -147,6 +147,8 @@
     }
     input[type="text"],
     input[type="number"],
+    input[type="date"],
+    select,
     textarea {
       border-radius: 999px;
       border: 1px solid #e5e7eb;
@@ -161,7 +163,12 @@
       resize: vertical;
       min-height: 48px;
     }
-    input:focus, textarea:focus {
+    select {
+      border-radius: 12px;
+    }
+    input:focus,
+    textarea:focus,
+    select:focus {
       border-color: #2563eb;
       box-shadow: 0 0 0 1px rgba(37,99,235,0.25);
       background: #ffffff;
@@ -335,6 +342,117 @@
       background: #eff6ff;
       color: #1d4ed8;
     }
+    .badge.gray {
+      background: #f3f4f6;
+      color: #4b5563;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      font-size: 11px;
+      padding: 1px 8px;
+      margin-right: 6px;
+    }
+    .tag.success {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .tag.danger {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .tag.neutral {
+      background: #e0e7ff;
+      color: #312e81;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 240px;
+      overflow: auto;
+    }
+    .history-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      background: #f9fafb;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .history-item:hover {
+      border-color: #93c5fd;
+      background: #eff6ff;
+    }
+    .history-item.selected {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px rgba(37,99,235,0.2);
+      background: #eef2ff;
+    }
+    .history-title {
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .history-meta {
+      color: #6b7280;
+      font-size: 11px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .blueprint-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 10px;
+      background: #f9fafb;
+    }
+    .blueprint-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .bp-label {
+      font-size: 11px;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+    .bp-canvas {
+      border: 1px dashed #d1d5db;
+      border-radius: 12px;
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background: #fff;
+    }
+    .bp-shape {
+      border: 2px solid #2563eb;
+      background: rgba(37,99,235,0.08);
+      margin: auto;
+    }
+    .bp-dims {
+      position: absolute;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: #1f2937;
+      background: rgba(255,255,255,0.85);
+      padding: 1px 6px;
+      border-radius: 999px;
+      border: 1px solid #e5e7eb;
+    }
+    .bp-empty {
+      font-size: 11px;
+      color: #9ca3af;
+    }
 
     @media (max-width: 960px) {
       main {
@@ -413,6 +531,21 @@
         </div>
       </div>
 
+      <div class="inline-fields">
+        <div class="field">
+          <label>購買日期</label>
+          <input id="f-purchase-date" type="date" />
+        </div>
+        <div class="field" style="flex:1;">
+          <label>材質</label>
+          <select id="f-material">
+            <option value="">未指定</option>
+            <option value="hpht">高溫高壓（HPHT）</option>
+            <option value="cvd">CVD</option>
+          </select>
+        </div>
+      </div>
+
       <div class="field">
         <label>備註</label>
         <input id="f-note" type="text" placeholder="用途 / 材質說明…" />
@@ -449,6 +582,8 @@
             <th>尺寸（L×W×H）</th>
             <th>庫存數量</th>
             <th>已領出</th>
+            <th>購買日</th>
+            <th>材質</th>
             <th>單價</th>
             <th>總價</th>
             <th>備註</th>
@@ -458,6 +593,24 @@
           <tbody id="tbody"></tbody>
         </table>
         <div id="empty-hint" class="empty">尚無任何批次，請先在上方新增一筆。</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:10px; padding:10px 12px 12px;">
+      <div class="card-title">
+        <span>歷史批次（已用罄）</span>
+        <span class="sub" id="history-summary">0 筆</span>
+      </div>
+      <div id="history-list" class="history-list" style="margin-top:6px;">
+        <div class="empty">尚無用罄批次。</div>
+      </div>
+
+      <div class="card-title" style="margin-top:12px;">
+        <span>型號耗用統計</span>
+        <span class="sub">依尺寸分組，計算平均用罄週期</span>
+      </div>
+      <div id="model-stats" style="margin-top:6px;">
+        <div class="empty">沒有歷史資料。</div>
       </div>
     </div>
   </section>
@@ -470,6 +623,23 @@
 
     <div id="three-container">
       <div id="dim-labels"><span>L×W×H：-</span></div>
+    </div>
+
+    <div class="blueprint-card">
+      <div class="blueprint-grid">
+        <div>
+          <div class="bp-label">上視圖</div>
+          <div class="bp-canvas" id="view-top">
+            <div class="bp-empty">尚無數據</div>
+          </div>
+        </div>
+        <div>
+          <div class="bp-label">側視圖</div>
+          <div class="bp-canvas" id="view-side">
+            <div class="bp-empty">尚無數據</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div style="margin-top:8px;">
@@ -489,12 +659,24 @@
         <span class="detail-label">備註</span>
         <span id="info-note">-</span>
       </div>
+      <div class="detail-row">
+        <span class="detail-label">購買日期</span>
+        <span id="info-purchase">-</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">材質</span>
+        <span id="info-material">-</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">用罄 / 週期</span>
+        <span id="info-cycle">-</span>
+      </div>
     </div>
 
     <div class="card" style="margin-top:10px; padding:10px 12px 12px;">
       <div class="card-title">
         <span>領料紀錄</span>
-        <span class="badge blue">
+        <span class="badge blue" id="withdraw-scope">
           <span style="width:6px;height:6px;border-radius:999px;background:#1d4ed8;"></span>
           針對目前選取批次
         </span>
@@ -535,6 +717,10 @@
   let renderer = null;
   let shapeMesh = null;
   let threeContainer = null;
+  const MATERIAL_LABELS = {
+    hpht: '高溫高壓（HPHT）',
+    cvd: 'CVD'
+  };
 
   // ===== 小工具 =====
   function getSelectedShape() {
@@ -585,9 +771,79 @@
     }
   }
 
+  function parseDateValue(raw) {
+    if (!raw) return null;
+    let normalized = String(raw).trim();
+    if (!normalized) return null;
+    if (normalized.length === 10) {
+      normalized = normalized + 'T00:00:00';
+    } else {
+      normalized = normalized.replace(' ', 'T');
+    }
+    const date = new Date(normalized + 'Z');
+    if (Number.isNaN(date.getTime())) return null;
+    return date;
+  }
+
   function formatDateTime(raw) {
-    if (!raw) return '';
-    return String(raw);
+    const date = parseDateValue(raw);
+    if (!date) return raw ? String(raw) : '';
+    return date.toLocaleString('zh-TW', { hour12: false });
+  }
+
+  function formatShortDate(raw) {
+    const date = parseDateValue(raw);
+    if (!date) return raw ? String(raw) : '';
+    return date.toLocaleDateString('zh-TW');
+  }
+
+  function formatMaterial(type) {
+    if (!type) return '-';
+    const key = String(type).toLowerCase();
+    return MATERIAL_LABELS[key] || String(type).toUpperCase();
+  }
+
+  function formatMaterialShort(type) {
+    if (!type) return '-';
+    const key = String(type).toLowerCase();
+    if (key === 'hpht') return 'HPHT';
+    if (key === 'cvd') return 'CVD';
+    return String(type).toUpperCase();
+  }
+
+  function computeUsageDays(item) {
+    if (!item) return null;
+    const start = parseDateValue(item.purchase_date);
+    const end = parseDateValue(item.depleted_at);
+    if (!start || !end) return null;
+    const diff = end.getTime() - start.getTime();
+    if (!Number.isFinite(diff) || diff <= 0) return null;
+    return diff / (1000 * 60 * 60 * 24);
+  }
+
+  function formatUsageText(item) {
+    if (!item) return '-';
+    const archived = Number(item.is_archived) === 1;
+    if (archived) {
+      const days = computeUsageDays(item);
+      const depletedStr = item.depleted_at ? formatDateTime(item.depleted_at) : '';
+      if (days != null && item.purchase_date) {
+        return `歷時 ${days.toFixed(1)} 天（${formatShortDate(item.purchase_date)} → ${depletedStr || '-'}）`;
+      }
+      if (depletedStr) return '用罄於 ' + depletedStr;
+      return '已用罄';
+    }
+    if (item.purchase_date) {
+      const start = parseDateValue(item.purchase_date);
+      if (start) {
+        const diff = Date.now() - start.getTime();
+        if (diff > 0) {
+          const days = diff / (1000 * 60 * 60 * 24);
+          return `已入庫 ${days.toFixed(1)} 天`;
+        }
+      }
+    }
+    return '-';
   }
 
   // ===== 呼叫 API =====
@@ -663,17 +919,16 @@
 
   async function refreshItemsFromServer() {
     items = await apiListItems();
-    renderList();
     if (editingItemId && !items.find(x => x.id === editingItemId)) {
       editingItemId = null;
       clearForm();
     }
-    if (selectedId && !items.find(x => x.id === selectedId)) {
-      selectedId = null;
+    if (!items.find(x => x.id === selectedId)) {
+      const next = items.find(x => Number(x.is_archived) === 0) || items[0] || null;
+      selectedId = next ? next.id : null;
     }
-    if (!selectedId && items.length > 0) {
-      selectedId = items[0].id;
-    }
+    renderList();
+    renderHistory();
     await renderSelected();
   }
 
@@ -770,22 +1025,75 @@
     }
   }
 
+  function updateBlueprintViews(item) {
+    renderBlueprintView('view-top', item, 'top');
+    renderBlueprintView('view-side', item, 'side');
+  }
+
+  function renderBlueprintView(id, item, orientation) {
+    const container = document.getElementById(id);
+    if (!container) return;
+    if (!item || !item.length || !item.width || !item.height) {
+      container.innerHTML = '<div class="bp-empty">尚無數據</div>';
+      return;
+    }
+
+    const dims = {
+      length: Number(item.length),
+      width: Number(item.width),
+      height: Number(item.height)
+    };
+    if (!isFinite(dims.length) || !isFinite(dims.width) || !isFinite(dims.height)) {
+      container.innerHTML = '<div class="bp-empty">尚無數據</div>';
+      return;
+    }
+
+    let targetWidth = dims.length;
+    let targetHeight = orientation === 'top' ? dims.width : dims.height;
+    if (item.shape_type === 'cylinder') {
+      targetWidth = dims.length;
+      targetHeight = orientation === 'top' ? dims.length : dims.height;
+    }
+
+    const maxDim = Math.max(targetWidth, targetHeight, 1);
+    const maxPixels = 100;
+    const scale = maxPixels / maxDim;
+    const displayWidth = Math.max(targetWidth * scale, 20);
+    const displayHeight = Math.max(targetHeight * scale, 20);
+    const borderRadius = (item.shape_type === 'cylinder' && orientation === 'top') ? '999px' : '10px';
+
+    let dimText = '';
+    if (item.shape_type === 'cylinder') {
+      dimText = orientation === 'top'
+        ? `Ø ${formatDimensionValue(dims.length)} mm`
+        : `Ø ${formatDimensionValue(dims.length)} × H ${formatDimensionValue(dims.height)} mm`;
+    } else {
+      dimText = orientation === 'top'
+        ? `${formatDimensionValue(dims.length)} × ${formatDimensionValue(dims.width)} mm`
+        : `${formatDimensionValue(dims.length)} × H ${formatDimensionValue(dims.height)} mm`;
+    }
+
+    container.innerHTML = `<div class="bp-shape" style="width:${displayWidth}px;height:${displayHeight}px;border-radius:${borderRadius};"></div><div class="bp-dims">${dimText}</div>`;
+  }
+
   // ===== UI：列表 =====
   function renderList() {
     const tbody = document.getElementById('tbody');
     const emptyHint = document.getElementById('empty-hint');
     tbody.innerHTML = '';
 
-    if (!items || items.length === 0) {
+    const activeItems = (items || []).filter(it => Number(it.is_archived) === 0);
+
+    if (!activeItems || activeItems.length === 0) {
       emptyHint.style.display = 'block';
-      document.getElementById('list-summary').textContent = '0 筆';
+      document.getElementById('list-summary').textContent = '0 筆（庫存中）';
       return;
     }
 
     emptyHint.style.display = 'none';
-    document.getElementById('list-summary').textContent = items.length + ' 筆';
+    document.getElementById('list-summary').textContent = activeItems.length + ' 筆（庫存中）';
 
-    items.forEach(it => {
+    activeItems.forEach(it => {
       const tr = document.createElement('tr');
       if (it.id === selectedId) tr.classList.add('selected');
 
@@ -806,6 +1114,8 @@
       tr.appendChild(td(it.size_str));
       tr.appendChild(td(it.qty));
       tr.appendChild(td(it.withdrawn_qty != null ? it.withdrawn_qty : 0));
+      tr.appendChild(td(formatShortDate(it.purchase_date) || '-'));
+      tr.appendChild(td(formatMaterialShort(it.material_type)));
       tr.appendChild(td(it.unit_price != null ? it.unit_price : '-'));
 
       let totalStr = '-';
@@ -860,6 +1170,119 @@
     });
   }
 
+  function renderHistory() {
+    const historyList = document.getElementById('history-list');
+    const historySummary = document.getElementById('history-summary');
+    if (!historyList || !historySummary) return;
+
+    const archivedItems = (items || [])
+      .filter(it => Number(it.is_archived) === 1)
+      .sort((a, b) => {
+        const aTime = parseDateValue(a.depleted_at)?.getTime() || 0;
+        const bTime = parseDateValue(b.depleted_at)?.getTime() || 0;
+        return bTime - aTime;
+      });
+    historySummary.textContent = archivedItems.length + ' 筆';
+
+    if (archivedItems.length === 0) {
+      historyList.innerHTML = '<div class="empty">尚無用罄批次。</div>';
+    } else {
+      historyList.innerHTML = '';
+      archivedItems.forEach(it => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        if (it.id === selectedId) {
+          div.classList.add('selected');
+        }
+        const title = document.createElement('div');
+        title.className = 'history-title';
+        title.textContent = `${it.vendor}｜${it.size_str}`;
+        div.appendChild(title);
+
+        const meta1 = document.createElement('div');
+        meta1.className = 'history-meta';
+        const purchaseText = formatShortDate(it.purchase_date) || '未填';
+        const depletedText = it.depleted_at ? formatDateTime(it.depleted_at) : '—';
+        meta1.innerHTML = `<span>購買：${purchaseText}</span><span>用罄：${depletedText}</span>`;
+        div.appendChild(meta1);
+
+        const meta2 = document.createElement('div');
+        meta2.className = 'history-meta';
+        meta2.textContent = formatUsageText(it);
+        div.appendChild(meta2);
+
+        div.addEventListener('click', () => {
+          selectedId = it.id;
+          renderSelected();
+          renderList();
+          renderHistory();
+        });
+
+        historyList.appendChild(div);
+      });
+    }
+
+    renderModelStats(archivedItems);
+  }
+
+  function renderModelStats(archivedItems) {
+    const container = document.getElementById('model-stats');
+    if (!container) return;
+    if (!archivedItems || archivedItems.length === 0) {
+      container.innerHTML = '<div class="empty">沒有歷史資料。</div>';
+      return;
+    }
+
+    const grouped = new Map();
+    archivedItems.forEach(it => {
+      const key = it.size_str || '未填尺寸';
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(it);
+    });
+
+    const rows = Array.from(grouped.entries()).map(([size, list]) => {
+      const durations = list.map(it => computeUsageDays(it)).filter(v => v != null);
+      const avgDays = durations.length ? durations.reduce((sum, cur) => sum + cur, 0) / durations.length : null;
+      const latest = list.slice().sort((a, b) => {
+        const aTime = parseDateValue(a.depleted_at)?.getTime() || 0;
+        const bTime = parseDateValue(b.depleted_at)?.getTime() || 0;
+        return bTime - aTime;
+      })[0];
+      return { size, count: list.length, avgDays, latest };
+    }).sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      const avgA = a.avgDays ?? 0;
+      const avgB = b.avgDays ?? 0;
+      if (avgB !== avgA) return avgB - avgA;
+      return a.size.localeCompare(b.size, 'zh-Hant');
+    });
+
+    container.innerHTML = '';
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>尺寸</th><th>批次數</th><th>平均用罄天數</th><th>最近用罄</th></tr>';
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    rows.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      tr.addEventListener('click', () => {
+        if (row.latest) {
+          selectedId = row.latest.id;
+          renderSelected();
+          renderList();
+          renderHistory();
+        }
+      });
+      const avgStr = row.avgDays != null ? row.avgDays.toFixed(1) + ' 天' : '—';
+      const latestStr = row.latest && row.latest.depleted_at ? formatDateTime(row.latest.depleted_at) : '—';
+      tr.innerHTML = `<td>${row.size}</td><td>${row.count}</td><td>${avgStr}</td><td>${latestStr}</td>`;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    container.appendChild(table);
+  }
+
   // ===== UI：右側詳細＋領料紀錄 =====
   async function renderSelected() {
     const titleEl = document.getElementById('selected-title');
@@ -868,7 +1291,21 @@
     const infoQty = document.getElementById('info-qty');
     const infoPrice = document.getElementById('info-price');
     const infoNote = document.getElementById('info-note');
+    const infoPurchase = document.getElementById('info-purchase');
+    const infoMaterial = document.getElementById('info-material');
+    const infoCycle = document.getElementById('info-cycle');
     const logList = document.getElementById('log-list');
+    const withdrawScope = document.getElementById('withdraw-scope');
+    const withdrawForm = document.getElementById('withdraw-form');
+
+    const toggleWithdrawDisabled = disabled => {
+      if (!withdrawForm) return;
+      withdrawForm.querySelectorAll('input, button').forEach(el => {
+        if (el.tagName === 'INPUT' || el.type === 'submit') {
+          el.disabled = disabled;
+        }
+      });
+    };
 
     const it = items.find(x => x.id === selectedId);
     if (!it) {
@@ -878,7 +1315,16 @@
       infoQty.textContent = '-';
       infoPrice.textContent = '-';
       infoNote.textContent = '-';
+      infoPurchase.textContent = '-';
+      infoMaterial.textContent = '-';
+      infoCycle.textContent = '-';
       logList.innerHTML = '<div class="empty">尚無領料紀錄。</div>';
+      updateBlueprintViews(null);
+      if (withdrawScope) {
+        withdrawScope.className = 'badge gray';
+        withdrawScope.innerHTML = '<span style="width:6px;height:6px;border-radius:999px;background:#9ca3af;"></span>請先選擇批次';
+      }
+      toggleWithdrawDisabled(true);
       if (shapeMesh && scene) {
         scene.remove(shapeMesh);
         shapeMesh.geometry.dispose();
@@ -888,11 +1334,13 @@
       return;
     }
 
-    titleEl.textContent = it.vendor + '｜' + it.size_str;
+    const archived = Number(it.is_archived) === 1;
+    const statusTag = archived ? '<span class="tag danger">已用罄</span>' : '<span class="tag success">庫存中</span>';
+    titleEl.innerHTML = statusTag + ' ' + it.vendor + '｜' + it.size_str;
     const dimLabel = (it.shape_type === 'cylinder') ? 'Ø×H' : 'L×W×H';
     dimSpan.innerHTML = dimLabel + '：<code>' + it.size_str + '</code>';
     infoVendor.textContent = it.vendor;
-    infoQty.textContent = it.qty + ' 塊';
+    infoQty.textContent = it.qty + ' 塊' + (archived ? '（已用罄）' : '');
 
     if (it.unit_price != null) {
       const total = (Number(it.unit_price) * Number(it.qty)).toFixed(2);
@@ -901,6 +1349,11 @@
       infoPrice.textContent = '-';
     }
     infoNote.textContent = it.note || '-';
+    infoPurchase.textContent = formatShortDate(it.purchase_date) || '-';
+    infoMaterial.textContent = formatMaterial(it.material_type);
+    infoCycle.textContent = formatUsageText(it);
+
+    updateBlueprintViews(it);
 
     if (it.length && it.width && it.height) {
       setShapeGeometry(it.shape_type || 'box', {
@@ -908,7 +1361,20 @@
         width: Number(it.width),
         height: Number(it.height)
       });
+    } else if (shapeMesh && scene) {
+      scene.remove(shapeMesh);
+      shapeMesh.geometry.dispose();
+      shapeMesh.material.dispose();
+      shapeMesh = null;
     }
+
+    if (withdrawScope) {
+      withdrawScope.className = 'badge ' + (archived ? 'gray' : 'blue');
+      const dotColor = archived ? '#9ca3af' : '#1d4ed8';
+      const scopeText = archived ? '已用罄，僅供查詢' : '針對目前選取批次';
+      withdrawScope.innerHTML = `<span style="width:6px;height:6px;border-radius:999px;background:${dotColor};"></span>${scopeText}`;
+    }
+    toggleWithdrawDisabled(archived);
 
     // 領料紀錄
     try {
@@ -1012,6 +1478,8 @@
     document.getElementById('f-qty').value = '1';
     document.getElementById('f-price').value = '';
     document.getElementById('f-note').value = '';
+    document.getElementById('f-purchase-date').value = '';
+    document.getElementById('f-material').value = '';
     const err = document.getElementById('add-error');
     err.style.display = 'none';
     err.textContent = '';
@@ -1031,6 +1499,8 @@
     document.getElementById('f-qty').value = Number(item.qty);
     document.getElementById('f-price').value = item.unit_price != null ? item.unit_price : '';
     document.getElementById('f-note').value = item.note || '';
+    document.getElementById('f-purchase-date').value = item.purchase_date || '';
+    document.getElementById('f-material').value = item.material_type || '';
 
     const shape = item.shape_type === 'cylinder' ? 'cylinder' : 'box';
     document.querySelectorAll('input[name="f-shape"]').forEach(radio => {
@@ -1069,6 +1539,8 @@
     const qty = Number(document.getElementById('f-qty').value);
     const priceStr = document.getElementById('f-price').value;
     const note = document.getElementById('f-note').value.trim();
+    const purchaseDate = document.getElementById('f-purchase-date').value;
+    const materialType = document.getElementById('f-material').value;
 
     if (!vendor) {
       err.textContent = '廠商必填。';
@@ -1109,6 +1581,12 @@
       unit_price: unitPrice,
       note: note
     };
+    if (purchaseDate) {
+      payload.purchase_date = purchaseDate;
+    }
+    if (materialType) {
+      payload.material_type = materialType;
+    }
     if (editingItemId) {
       payload.id = editingItemId;
     }
@@ -1149,6 +1627,11 @@
     const it = items.find(x => x.id === selectedId);
     if (!it) {
       err.textContent = '請先在左側選擇一個批次。';
+      err.style.display = 'block';
+      return;
+    }
+    if (Number(it.is_archived) === 1) {
+      err.textContent = '此批次已用罄，只能查閱歷史紀錄。';
       err.style.display = 'block';
       return;
     }

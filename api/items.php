@@ -12,7 +12,7 @@ if ($method === 'GET') {
         FROM items i
         LEFT JOIN withdrawals w ON w.item_id = i.id
         GROUP BY i.id
-        ORDER BY i.updated_at DESC, i.id DESC
+        ORDER BY i.is_archived ASC, i.updated_at DESC, i.id DESC
     ");
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     json_response($rows);
@@ -39,6 +39,8 @@ if ($method === 'POST') {
     }
     $note      = trim($data['note'] ?? '');
     $shapeType = $data['shape_type'] ?? 'box';
+    $purchaseDate = trim($data['purchase_date'] ?? '');
+    $materialType = $data['material_type'] ?? null;
 
     $errors = [];
     if ($vendor === '') $errors[] = 'vendor required';
@@ -52,6 +54,21 @@ if ($method === 'POST') {
         $width = $length;
     }
     if ($qty < 0) $errors[] = 'qty must be >= 0';
+    if ($purchaseDate !== '') {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $purchaseDate)) {
+            $errors[] = 'invalid purchase_date';
+        }
+    } else {
+        $purchaseDate = null;
+    }
+    if ($materialType !== null) {
+        $materialType = strtolower(trim((string)$materialType));
+        if ($materialType === '') {
+            $materialType = null;
+        } elseif (!in_array($materialType, ['hpht', 'cvd'], true)) {
+            $errors[] = 'invalid material_type';
+        }
+    }
 
     if ($errors) {
         json_response(['error' => implode('; ', $errors)], 400);
@@ -59,55 +76,93 @@ if ($method === 'POST') {
 
     $now = gmdate('Y-m-d H:i:s');
 
+    $existing = null;
     if ($id > 0) {
-        // 更新（目前前端不會用）
+        $stmt = $db->prepare("SELECT * FROM items WHERE id = :id");
+        $stmt->execute([':id' => $id]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$existing) {
+            json_response(['error' => 'item not found'], 404);
+        }
+    }
+
+    $isArchived = 0;
+    $depletedAt = null;
+    if ($existing) {
+        $isArchived = (int)$existing['is_archived'];
+        $depletedAt = $existing['depleted_at'] ?? null;
+    }
+    if ($qty <= 0) {
+        $isArchived = 1;
+        if (!$depletedAt) {
+            $depletedAt = $now;
+        }
+    } else {
+        $isArchived = 0;
+        $depletedAt = null;
+    }
+
+    if ($id > 0) {
+        // 更新
         $stmt = $db->prepare("
             UPDATE items
-            SET vendor     = :vendor,
-                size_str   = :size_str,
-                length     = :length,
-                width      = :width,
-                height     = :height,
-                qty        = :qty,
-                unit_price = :unit_price,
-                note       = :note,
-                shape_type = :shape_type,
-                updated_at = :updated_at
+            SET vendor        = :vendor,
+                size_str      = :size_str,
+                length        = :length,
+                width         = :width,
+                height        = :height,
+                qty           = :qty,
+                unit_price    = :unit_price,
+                note          = :note,
+                shape_type    = :shape_type,
+                purchase_date = :purchase_date,
+                material_type = :material_type,
+                is_archived   = :is_archived,
+                depleted_at   = :depleted_at,
+                updated_at    = :updated_at
             WHERE id = :id
         ");
         $stmt->execute([
-            ':vendor'     => $vendor,
-            ':size_str'   => $sizeStr,
-            ':length'     => $length,
-            ':width'      => $width,
-            ':height'     => $height,
-            ':qty'        => $qty,
-            ':unit_price' => $unitPrice,
-            ':note'       => $note,
-            ':shape_type' => $shapeType,
-            ':updated_at' => $now,
-            ':id'         => $id,
+            ':vendor'        => $vendor,
+            ':size_str'      => $sizeStr,
+            ':length'        => $length,
+            ':width'         => $width,
+            ':height'        => $height,
+            ':qty'           => $qty,
+            ':unit_price'    => $unitPrice,
+            ':note'          => $note,
+            ':shape_type'    => $shapeType,
+            ':purchase_date' => $purchaseDate,
+            ':material_type' => $materialType,
+            ':is_archived'   => $isArchived,
+            ':depleted_at'   => $depletedAt,
+            ':updated_at'    => $now,
+            ':id'            => $id,
         ]);
     } else {
         // 新增
         $stmt = $db->prepare("
             INSERT INTO items
-            (vendor, size_str, length, width, height, qty, unit_price, note, shape_type, created_at, updated_at)
+            (vendor, size_str, length, width, height, qty, unit_price, note, shape_type, purchase_date, material_type, is_archived, depleted_at, created_at, updated_at)
             VALUES
-            (:vendor, :size_str, :length, :width, :height, :qty, :unit_price, :note, :shape_type, :created_at, :updated_at)
+            (:vendor, :size_str, :length, :width, :height, :qty, :unit_price, :note, :shape_type, :purchase_date, :material_type, :is_archived, :depleted_at, :created_at, :updated_at)
         ");
         $stmt->execute([
-            ':vendor'     => $vendor,
-            ':size_str'   => $sizeStr,
-            ':length'     => $length,
-            ':width'      => $width,
-            ':height'     => $height,
-            ':qty'        => $qty,
-            ':unit_price' => $unitPrice,
-            ':note'       => $note,
-            ':shape_type' => $shapeType,
-            ':created_at' => $now,
-            ':updated_at' => $now,
+            ':vendor'        => $vendor,
+            ':size_str'      => $sizeStr,
+            ':length'        => $length,
+            ':width'         => $width,
+            ':height'        => $height,
+            ':qty'           => $qty,
+            ':unit_price'    => $unitPrice,
+            ':note'          => $note,
+            ':shape_type'    => $shapeType,
+            ':purchase_date' => $purchaseDate,
+            ':material_type' => $materialType,
+            ':is_archived'   => $isArchived,
+            ':depleted_at'   => $depletedAt,
+            ':created_at'    => $now,
+            ':updated_at'    => $now,
         ]);
         $id = (int)$db->lastInsertId();
     }
