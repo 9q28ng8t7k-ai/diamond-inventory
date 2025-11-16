@@ -79,7 +79,7 @@ if ($method === 'POST') {
     json_response(['ok' => true]);
 }
 
-// PUT：修改一筆領料的用途（不動數量）
+// PUT：修改一筆領料的用途 / 數量（會回補或再扣庫存）
 if ($method === 'PUT') {
     $raw = file_get_contents('php://input');
     $data = json_decode($raw, true);
@@ -89,6 +89,7 @@ if ($method === 'PUT') {
 
     $id      = (int)($data['id'] ?? 0);
     $purpose = trim($data['purpose'] ?? '');
+    $qty     = $data['qty'] ?? null;
 
     if ($id <= 0) json_response(['error' => 'invalid id'], 400);
 
@@ -97,15 +98,93 @@ if ($method === 'PUT') {
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) json_response(['error' => 'withdraw not found'], 404);
 
+    $itemId = (int)$row['item_id'];
+    $originalQty = (int)$row['qty'];
+
+    $newQty = $qty !== null ? (int)$qty : $originalQty;
+    if ($newQty <= 0) {
+        json_response(['error' => 'qty must be > 0'], 400);
+    }
+
+    $db->beginTransaction();
+
+    if ($newQty !== $originalQty) {
+        $delta = $newQty - $originalQty; // >0 代表需要再扣庫存
+        $now = gmdate('Y-m-d H:i:s');
+
+        if ($delta > 0) {
+            $stmt = $db->prepare("SELECT qty FROM items WHERE id = :id");
+            $stmt->execute([':id' => $itemId]);
+            $item = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$item) {
+                $db->rollBack();
+                json_response(['error' => 'item not found'], 404);
+            }
+            if ((int)$item['qty'] < $delta) {
+                $db->rollBack();
+                json_response(['error' => 'not enough stock to increase withdraw qty'], 400);
+            }
+
+            $stmt = $db->prepare("UPDATE items SET qty = qty - :delta, updated_at = :updated_at WHERE id = :id");
+            $stmt->execute([
+                ':delta'      => $delta,
+                ':updated_at' => $now,
+                ':id'         => $itemId,
+            ]);
+        } else {
+            $stmt = $db->prepare("UPDATE items SET qty = qty + :delta_abs, updated_at = :updated_at WHERE id = :id");
+            $stmt->execute([
+                ':delta_abs'  => abs($delta),
+                ':updated_at' => $now,
+                ':id'         => $itemId,
+            ]);
+        }
+    }
+
     $stmt = $db->prepare("
         UPDATE withdrawals
-        SET purpose = :purpose
+        SET purpose = :purpose,
+            qty      = :qty
         WHERE id = :id
     ");
     $stmt->execute([
         ':purpose' => $purpose,
+        ':qty'      => $newQty,
         ':id'      => $id,
     ]);
+
+    $db->commit();
+
+    json_response(['ok' => true]);
+}
+
+// DELETE：撤回一筆領料並回補庫存
+if ($method === 'DELETE') {
+    $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+    if ($id <= 0) json_response(['error' => 'invalid id'], 400);
+
+    $stmt = $db->prepare("SELECT * FROM withdrawals WHERE id = :id");
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) json_response(['error' => 'withdraw not found'], 404);
+
+    $itemId = (int)$row['item_id'];
+    $qty = (int)$row['qty'];
+    $now = gmdate('Y-m-d H:i:s');
+
+    $db->beginTransaction();
+
+    $stmt = $db->prepare("UPDATE items SET qty = qty + :qty, updated_at = :updated_at WHERE id = :id");
+    $stmt->execute([
+        ':qty'        => $qty,
+        ':updated_at' => $now,
+        ':id'         => $itemId,
+    ]);
+
+    $stmt = $db->prepare("DELETE FROM withdrawals WHERE id = :id");
+    $stmt->execute([':id' => $id]);
+
+    $db->commit();
 
     json_response(['ok' => true]);
 }
