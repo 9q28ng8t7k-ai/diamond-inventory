@@ -121,18 +121,18 @@ if ($method === 'POST') {
     if ($existing) {
         $isArchived = (int)$existing['is_archived'];
         $depletedAt = $existing['depleted_at'] ?? null;
-        if (!$hasUnitPriceForeign) {
-            $unitPriceForeign = $existing['unit_price_foreign'];
-        }
-        if (!$hasCurrencyCode) {
-            $currencyCode = $existing['currency_code'];
-        }
-        if (!$hasExchangeRate) {
-            $exchangeRate = $existing['exchange_rate'];
-        }
-        if (!$hasUnitPriceTwd) {
-            $unitPriceTwd = $existing['unit_price_twd'];
-        }
+
+        $preserveCurrencyField = function ($hasField, $value, $column) use ($existing) {
+            if ($hasField) {
+                return $value;
+            }
+            return array_key_exists($column, $existing) ? $existing[$column] : null;
+        };
+
+        $unitPriceForeign = $preserveCurrencyField($hasUnitPriceForeign, $unitPriceForeign, 'unit_price_foreign');
+        $currencyCode     = $preserveCurrencyField($hasCurrencyCode, $currencyCode, 'currency_code');
+        $exchangeRate     = $preserveCurrencyField($hasExchangeRate, $exchangeRate, 'exchange_rate');
+        $unitPriceTwd     = $preserveCurrencyField($hasUnitPriceTwd, $unitPriceTwd, 'unit_price_twd');
     }
     if ($qty <= 0) {
         $isArchived = 1;
