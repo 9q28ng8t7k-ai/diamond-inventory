@@ -585,28 +585,28 @@
       </div>
 
       <div class="inline-fields">
-        <div class="field">
+        <div class="field" style="flex:1;">
           <label>幣別</label>
-<div class="currency-row">
-  <!-- 下拉式選單 -->
-  <select id="f-currency">
-    <option value="CNY" selected>人民幣（CNY）</option>
-    <option value="USD">美元（USD）</option>
-    <option value="JPY">日圓（JPY）</option>
-    <option value="" data-placeholder="true">未指定</option>
-    <option value="__custom__">其他（自訂）</option>
-  </select>
+          <div class="currency-row">
+            <!-- 下拉式選單 -->
+            <select id="f-currency">
+              <option value="CNY" selected>人民幣（CNY）</option>
+              <option value="USD">美元（USD）</option>
+              <option value="JPY">日圓（JPY）</option>
+              <option value="" data-placeholder="true">未指定</option>
+              <option value="__custom__">其他（自訂）</option>
+            </select>
 
-  <!-- 自訂幣別 -->
-  <input
-    id="f-currency-custom"
-    class="custom-currency-input"
-    type="text"
-    placeholder="輸入幣別或直接輸入（相容舊版）"
-    maxlength="5"
-    style="text-transform:uppercase;"
-  />
-</div>
+            <!-- 自訂幣別 -->
+            <input
+              id="f-currency-custom"
+              class="custom-currency-input"
+              type="text"
+              placeholder="輸入幣別或直接輸入（相容舊版）"
+              maxlength="5"
+              style="text-transform:uppercase;"
+            />
+          </div>
         </div>
         <div class="field" style="flex:1;">
           <label>匯率（→ TWD）</label>
@@ -616,17 +616,6 @@
           </div>
           <div class="hint" id="exchange-hint">預設會依購入日抓取匯率，也可以自行輸入。</div>
         </div>
-      </div>
-
-      <div class="field">
-        <label>台幣單價 / 塊</label>
-        <div class="input-with-action">
-          <input id="f-price-twd" type="number" min="0" step="0.01" placeholder="自動換算" />
-          <button type="button" class="micro-btn" id="btn-recalc-twd">重新換算</button>
-        </div>
-      </div>
-        </div>
-        <div class="hint">系統會用「外幣 × 匯率」預填，也可以覆寫。</div>
       </div>
 
       <div class="field">
