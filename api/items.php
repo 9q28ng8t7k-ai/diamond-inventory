@@ -56,12 +56,6 @@ if ($method === 'POST') {
             $currencyCode = null;
         }
     }
- main
-        $currencyCode = strtoupper(trim((string)$data['currency_code']));
-        if ($currencyCode === '') {
-            $currencyCode = null;
-        }
-    }
     // 匯率
     $hasExchangeRate = isset($data['exchange_rate']);
     $exchangeRate = null;
@@ -73,9 +67,6 @@ if ($method === 'POST') {
     $hasUnitPriceTwd = isset($data['unit_price_twd']);
     $unitPriceTwd = null;
     if ($hasUnitPriceTwd && $data['unit_price_twd'] !== '') {
-        $unitPriceTwd = (float)$data['unit_price_twd'];
-    }
-main
         $unitPriceTwd = (float)$data['unit_price_twd'];
     }
     $note      = trim($data['note'] ?? '');
