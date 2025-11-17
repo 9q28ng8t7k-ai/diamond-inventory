@@ -33,9 +33,28 @@ if ($method === 'POST') {
     $width     = (float)($data['width'] ?? 0);
     $height    = (float)($data['height'] ?? 0);
     $qty       = (int)($data['qty'] ?? 0);
-    $unitPrice = null;
+    $unitPriceLegacy = null;
     if (isset($data['unit_price']) && $data['unit_price'] !== '') {
-        $unitPrice = (float)$data['unit_price'];
+        $unitPriceLegacy = (float)$data['unit_price'];
+    }
+    $unitPriceForeign = null;
+    if (isset($data['unit_price_foreign']) && $data['unit_price_foreign'] !== '') {
+        $unitPriceForeign = (float)$data['unit_price_foreign'];
+    }
+    $currencyCode = null;
+    if (array_key_exists('currency_code', $data)) {
+        $currencyCode = strtoupper(trim((string)$data['currency_code']));
+        if ($currencyCode === '') {
+            $currencyCode = null;
+        }
+    }
+    $exchangeRate = null;
+    if (isset($data['exchange_rate']) && $data['exchange_rate'] !== '') {
+        $exchangeRate = (float)$data['exchange_rate'];
+    }
+    $unitPriceTwd = null;
+    if (isset($data['unit_price_twd']) && $data['unit_price_twd'] !== '') {
+        $unitPriceTwd = (float)$data['unit_price_twd'];
     }
     $note      = trim($data['note'] ?? '');
     $shapeType = $data['shape_type'] ?? 'box';
@@ -54,6 +73,12 @@ if ($method === 'POST') {
         $width = $length;
     }
     if ($qty < 0) $errors[] = 'qty must be >= 0';
+    if ($unitPriceForeign !== null && $unitPriceForeign < 0) $errors[] = 'unit_price_foreign must be >= 0';
+    if ($exchangeRate !== null && $exchangeRate <= 0) $errors[] = 'exchange_rate must be > 0';
+    if ($unitPriceTwd !== null && $unitPriceTwd < 0) $errors[] = 'unit_price_twd must be >= 0';
+    if ($currencyCode !== null && !preg_match('/^[A-Z]{2,5}$/', $currencyCode)) {
+        $errors[] = 'invalid currency_code';
+    }
     if ($purchaseDate !== '') {
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $purchaseDate)) {
             $errors[] = 'invalid purchase_date';
@@ -73,6 +98,14 @@ if ($method === 'POST') {
     if ($errors) {
         json_response(['error' => implode('; ', $errors)], 400);
     }
+
+    if ($unitPriceTwd === null && $unitPriceLegacy !== null) {
+        $unitPriceTwd = $unitPriceLegacy;
+    }
+    if ($unitPriceTwd === null && $unitPriceForeign !== null && $exchangeRate !== null) {
+        $unitPriceTwd = $unitPriceForeign * $exchangeRate;
+    }
+    $unitPrice = $unitPriceTwd;
 
     $now = gmdate('Y-m-d H:i:s');
 
@@ -113,6 +146,10 @@ if ($method === 'POST') {
                 height        = :height,
                 qty           = :qty,
                 unit_price    = :unit_price,
+                unit_price_foreign = :unit_price_foreign,
+                currency_code = :currency_code,
+                exchange_rate = :exchange_rate,
+                unit_price_twd = :unit_price_twd,
                 note          = :note,
                 shape_type    = :shape_type,
                 purchase_date = :purchase_date,
@@ -130,6 +167,10 @@ if ($method === 'POST') {
             ':height'        => $height,
             ':qty'           => $qty,
             ':unit_price'    => $unitPrice,
+            ':unit_price_foreign' => $unitPriceForeign,
+            ':currency_code' => $currencyCode,
+            ':exchange_rate' => $exchangeRate,
+            ':unit_price_twd'=> $unitPriceTwd,
             ':note'          => $note,
             ':shape_type'    => $shapeType,
             ':purchase_date' => $purchaseDate,
@@ -143,9 +184,9 @@ if ($method === 'POST') {
         // 新增
         $stmt = $db->prepare("
             INSERT INTO items
-            (vendor, size_str, length, width, height, qty, unit_price, note, shape_type, purchase_date, material_type, is_archived, depleted_at, created_at, updated_at)
+            (vendor, size_str, length, width, height, qty, unit_price, unit_price_foreign, currency_code, exchange_rate, unit_price_twd, note, shape_type, purchase_date, material_type, is_archived, depleted_at, created_at, updated_at)
             VALUES
-            (:vendor, :size_str, :length, :width, :height, :qty, :unit_price, :note, :shape_type, :purchase_date, :material_type, :is_archived, :depleted_at, :created_at, :updated_at)
+            (:vendor, :size_str, :length, :width, :height, :qty, :unit_price, :unit_price_foreign, :currency_code, :exchange_rate, :unit_price_twd, :note, :shape_type, :purchase_date, :material_type, :is_archived, :depleted_at, :created_at, :updated_at)
         ");
         $stmt->execute([
             ':vendor'        => $vendor,
@@ -155,6 +196,10 @@ if ($method === 'POST') {
             ':height'        => $height,
             ':qty'           => $qty,
             ':unit_price'    => $unitPrice,
+            ':unit_price_foreign' => $unitPriceForeign,
+            ':currency_code' => $currencyCode,
+            ':exchange_rate' => $exchangeRate,
+            ':unit_price_twd'=> $unitPriceTwd,
             ':note'          => $note,
             ':shape_type'    => $shapeType,
             ':purchase_date' => $purchaseDate,

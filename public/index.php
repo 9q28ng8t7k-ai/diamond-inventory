@@ -118,6 +118,44 @@
       width: 90px;
       text-align: center;
     }
+    .input-with-action {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+    }
+    .input-with-action input {
+      flex: 1;
+    }
+    .currency-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .currency-row select {
+      min-width: 120px;
+    }
+    .custom-currency-input {
+      flex: 1;
+      display: none;
+    }
+    .micro-btn {
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #1f2937;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .micro-btn:hover {
+      background: #f3f4f6;
+      border-color: #94a3b8;
+    }
+    .hint.error {
+      color: #b91c1c;
+    }
     .edit-indicator {
       background: #fef9c3;
       color: #854d0e;
@@ -288,7 +326,9 @@
       width: 100%;
       height: clamp(320px, 60vh, 520px);
       border-radius: 14px;
-      background: radial-gradient(circle at top left, #eff6ff, #e5e7eb);
+      border: 1px solid #dbeafe;
+      background: linear-gradient(135deg, #eef2ff 0%, #e2e8f0 60%, #f8fafc 100%);
+      box-shadow: inset 0 0 30px rgba(15,23,42,0.08);
       overflow: hidden;
     }
     #dim-labels {
@@ -423,35 +463,47 @@
       margin-bottom: 4px;
     }
     .bp-canvas {
-      border: 1px dashed #d1d5db;
-      border-radius: 12px;
-      min-height: 120px;
+      border: 1px solid #d1d5db;
+      border-radius: 0;
+      min-height: 150px;
       display: flex;
       align-items: center;
       justify-content: center;
       position: relative;
-      background: #fff;
+      background: #ffffff;
+      padding: 6px;
     }
-    .bp-shape {
-      border: 2px solid #2563eb;
-      background: rgba(37,99,235,0.08);
-      margin: auto;
-    }
-    .bp-dims {
-      position: absolute;
-      bottom: 6px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 11px;
-      color: #1f2937;
-      background: rgba(255,255,255,0.85);
-      padding: 1px 6px;
-      border-radius: 999px;
-      border: 1px solid #e5e7eb;
+    .bp-svg {
+      width: 100%;
+      height: 150px;
     }
     .bp-empty {
       font-size: 11px;
       color: #9ca3af;
+    }
+    .bp-dim-text {
+      fill: #0f172a;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .bp-guide {
+      stroke: #94a3b8;
+      stroke-width: 1;
+      stroke-dasharray: 4 3;
+    }
+    .bp-dim-line {
+      stroke: #0f172a;
+      stroke-width: 1.2;
+    }
+    .bp-shape-stroke {
+      fill: rgba(37,99,235,0.06);
+      stroke: #2563eb;
+      stroke-width: 1.5;
+    }
+    .bp-center-line {
+      stroke: #cbd5f5;
+      stroke-width: 1;
+      stroke-dasharray: 6 4;
     }
 
     @media (max-width: 960px) {
@@ -526,9 +578,49 @@
           <input id="f-qty" type="number" min="0" step="1" required value="1" />
         </div>
         <div class="field">
-          <label>單價 / 塊（任意貨幣）</label>
-          <input id="f-price" type="number" min="0" step="0.01" />
+          <label>外幣單價 / 塊</label>
+          <input id="f-price-foreign" type="number" min="0" step="0.01" placeholder="例如：30" />
         </div>
+      </div>
+
+      <div class="inline-fields">
+        <div class="field">
+          <label>幣別</label>
+          <div class="currency-row">
+            <select id="f-currency">
+              <option value="CNY" selected>人民幣（CNY）</option>
+              <option value="USD">美元（USD）</option>
+              <option value="JPY">日圓（JPY）</option>
+              <option value="" data-placeholder="true">未指定</option>
+              <option value="__custom__">其他（自訂）</option>
+            </select>
+            <input
+              id="f-currency-custom"
+              class="custom-currency-input"
+              type="text"
+              placeholder="輸入幣別"
+              maxlength="5"
+              style="text-transform:uppercase;"
+            />
+          </div>
+        </div>
+        <div class="field" style="flex:1;">
+          <label>匯率（→ TWD）</label>
+          <div class="input-with-action">
+            <input id="f-exchange-rate" type="number" min="0" step="0.0001" placeholder="例如：31.5" />
+            <button type="button" class="micro-btn" id="btn-refresh-rate">重新取得</button>
+          </div>
+          <div class="hint" id="exchange-hint">預設會依購入日抓取匯率，也可以自行輸入。</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>台幣單價 / 塊</label>
+        <div class="input-with-action">
+          <input id="f-price-twd" type="number" min="0" step="0.01" placeholder="自動換算" />
+          <button type="button" class="micro-btn" id="btn-recalc-twd">重新換算</button>
+        </div>
+        <div class="hint">系統會用「外幣 × 匯率」預填，也可以覆寫。</div>
       </div>
 
       <div class="inline-fields">
@@ -584,8 +676,8 @@
             <th>已領出</th>
             <th>購買日</th>
             <th>材質</th>
-            <th>單價</th>
-            <th>總價</th>
+            <th>單價（外 / 台幣）</th>
+            <th>總價（TWD）</th>
             <th>備註</th>
             <th style="text-align:right;">操作</th>
           </tr>
@@ -652,7 +744,7 @@
         <span id="info-qty">-</span>
       </div>
       <div class="detail-row">
-        <span class="detail-label">單價 / 總價</span>
+        <span class="detail-label">單價 / 匯率 / 總價</span>
         <span id="info-price">-</span>
       </div>
       <div class="detail-row">
@@ -846,6 +938,240 @@
     return '-';
   }
 
+  const PRESET_CURRENCY_CODES = ['CNY', 'USD', 'JPY'];
+  const CUSTOM_CURRENCY_VALUE = '__custom__';
+  const FALLBACK_RATES = {
+    CNY: { rate: 4.45, label: '人民幣' },
+    USD: { rate: 32.2, label: '美元' },
+    JPY: { rate: 0.23, label: '日圓' }
+  };
+
+  function normalizeCurrencyCode(raw) {
+    if (!raw) return '';
+    return String(raw).trim().toUpperCase().slice(0, 5);
+  }
+
+  function getCurrencySelect() {
+    return document.getElementById('f-currency');
+  }
+
+  function getCustomCurrencyInput() {
+    return document.getElementById('f-currency-custom');
+  }
+
+  function getCurrentCurrencyCode() {
+    const select = getCurrencySelect();
+    if (!select) return '';
+    if (select.value === CUSTOM_CURRENCY_VALUE) {
+      const custom = getCustomCurrencyInput();
+      return custom ? normalizeCurrencyCode(custom.value) : '';
+    }
+    return normalizeCurrencyCode(select.value);
+  }
+
+  function setCurrencySelection(value) {
+    const select = getCurrencySelect();
+    const custom = getCustomCurrencyInput();
+    if (!select) return;
+    const normalized = normalizeCurrencyCode(value);
+    if (!normalized) {
+      select.value = '';
+      if (custom) {
+        custom.value = '';
+        custom.style.display = 'none';
+      }
+      return;
+    }
+    if (PRESET_CURRENCY_CODES.includes(normalized)) {
+      select.value = normalized;
+      if (custom) {
+        custom.value = '';
+        custom.style.display = 'none';
+      }
+    } else {
+      select.value = CUSTOM_CURRENCY_VALUE;
+      if (custom) {
+        custom.value = normalized;
+        custom.style.display = 'inline-block';
+      }
+    }
+  }
+
+  function getTwdUnitPrice(item) {
+    if (!item) return null;
+    const candidates = [item.unit_price_twd, item.unit_price];
+    for (const candidate of candidates) {
+      if (candidate != null && isFinite(candidate)) {
+        const num = Number(candidate);
+        if (Number.isFinite(num)) return num;
+      }
+    }
+    if (item.unit_price_foreign != null && item.exchange_rate != null) {
+      const foreign = Number(item.unit_price_foreign);
+      const rate = Number(item.exchange_rate);
+      if (Number.isFinite(foreign) && Number.isFinite(rate)) {
+        return foreign * rate;
+      }
+    }
+    return null;
+  }
+
+  function formatPriceForList(item) {
+    if (!item) return '-';
+    const currency = normalizeCurrencyCode(item.currency_code);
+    const foreign = item.unit_price_foreign != null ? Number(item.unit_price_foreign) : null;
+    const twd = getTwdUnitPrice(item);
+    const parts = [];
+    if (foreign != null && Number.isFinite(foreign)) {
+      const foreignStr = foreign.toFixed(2);
+      parts.push((currency ? currency + ' ' : '') + foreignStr);
+    }
+    if (twd != null && Number.isFinite(twd)) {
+      parts.push('NT$' + twd.toFixed(2));
+    }
+    return parts.length ? parts.join(' / ') : '-';
+  }
+
+  function formatPriceDetail(item) {
+    if (!item) return '-';
+    const currency = normalizeCurrencyCode(item.currency_code);
+    const foreign = item.unit_price_foreign != null ? Number(item.unit_price_foreign) : null;
+    const exchangeRate = item.exchange_rate != null ? Number(item.exchange_rate) : null;
+    const twd = getTwdUnitPrice(item);
+    const qty = Number(item.qty);
+    const parts = [];
+    if (foreign != null && Number.isFinite(foreign)) {
+      parts.push(`${currency ? currency + ' ' : ''}${foreign.toFixed(2)} / 塊`);
+    }
+    if (exchangeRate != null && Number.isFinite(exchangeRate)) {
+      parts.push('匯率 ' + exchangeRate.toFixed(4));
+    }
+    if (twd != null && Number.isFinite(twd)) {
+      parts.push('NT$' + twd.toFixed(2) + ' / 塊');
+      if (Number.isFinite(qty)) {
+        parts.push('總價 NT$' + (twd * qty).toFixed(2));
+      }
+    }
+    return parts.length ? parts.join(' ｜ ') : '-';
+  }
+
+  let rateRequestId = 0;
+
+  function updateExchangeHint(text, isError = false) {
+    const hint = document.getElementById('exchange-hint');
+    if (!hint) return;
+    if (text) {
+      hint.textContent = text;
+    } else {
+      hint.textContent = '預設會依購入日抓取匯率，也可以自行輸入。';
+    }
+    if (isError) {
+      hint.classList.add('error');
+    } else {
+      hint.classList.remove('error');
+    }
+  }
+
+  function resetPriceFieldStates() {
+    const exchangeInput = document.getElementById('f-exchange-rate');
+    if (exchangeInput) delete exchangeInput.dataset.manual;
+    const twdInput = document.getElementById('f-price-twd');
+    if (twdInput) delete twdInput.dataset.manual;
+    updateExchangeHint('預設會依購入日抓取匯率，也可以自行輸入。', false);
+  }
+
+  async function fetchExchangeRate(currency, dateStr) {
+    const normalized = normalizeCurrencyCode(currency);
+    if (!normalized) return null;
+    const endpoint = dateStr ? dateStr : 'latest';
+    const url = `https://api.exchangerate.host/${endpoint}?base=${encodeURIComponent(normalized)}&symbols=TWD`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('exchange rate api failed');
+    const data = await res.json();
+    const rate = data && data.rates && data.rates.TWD;
+    if (rate == null) return null;
+    const num = Number(rate);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  async function autoFetchExchangeRate(force = false) {
+    const rateInput = document.getElementById('f-exchange-rate');
+    if (!rateInput) return;
+    const currency = getCurrentCurrencyCode();
+    const select = getCurrencySelect();
+    if (!currency) {
+      if (force) {
+        if (select && select.value === CUSTOM_CURRENCY_VALUE) {
+          updateExchangeHint('請輸入自訂幣別（例如 EUR）。', true);
+        } else {
+          updateExchangeHint('請選擇幣別（例如 CNY）。', true);
+        }
+      } else {
+        if (select && select.value === CUSTOM_CURRENCY_VALUE) {
+          updateExchangeHint('請輸入自訂幣別以查詢匯率。');
+        } else {
+          updateExchangeHint('請選擇幣別以查詢匯率。');
+        }
+      }
+      return;
+    }
+    if (!force && rateInput.dataset.manual === 'true' && rateInput.value) {
+      updateExchangeHint('匯率為手動輸入。');
+      return;
+    }
+    const purchaseDateInput = document.getElementById('f-purchase-date');
+    const purchaseDate = purchaseDateInput && purchaseDateInput.value ? purchaseDateInput.value : null;
+    const token = ++rateRequestId;
+    updateExchangeHint('匯率查詢中…');
+    let rate = null;
+    let hadError = false;
+    try {
+      rate = await fetchExchangeRate(currency, purchaseDate);
+    } catch (err) {
+      hadError = true;
+    }
+    if (token !== rateRequestId) return;
+    if (rate != null) {
+      rateInput.value = rate.toFixed(4);
+      delete rateInput.dataset.manual;
+      updateExchangeHint(purchaseDate ? `${currency} 對 TWD（${purchaseDate}）` : `${currency} 對 TWD 最新匯率`);
+      const twdInput = document.getElementById('f-price-twd');
+      if (twdInput) delete twdInput.dataset.manual;
+      updateTwdPriceField({ force: true });
+      return;
+    }
+    const fallback = FALLBACK_RATES[currency];
+    if (fallback) {
+      rateInput.value = fallback.rate.toFixed(4);
+      delete rateInput.dataset.manual;
+      const prefix = hadError ? '無法連線匯率服務，已套用預設' : '查不到這個幣別的即時匯率，已套用預設';
+      const displayName = fallback.label ? `${fallback.label}（${currency}）` : currency;
+      updateExchangeHint(`${prefix} ${displayName} → TWD ${fallback.rate.toFixed(4)}。`);
+      const twdInput = document.getElementById('f-price-twd');
+      if (twdInput) delete twdInput.dataset.manual;
+      updateTwdPriceField({ force: true });
+    } else {
+      updateExchangeHint(hadError ? '匯率取得失敗，可手動輸入。' : '查不到這個幣別的匯率，請手動填寫。', true);
+    }
+  }
+
+  function updateTwdPriceField({ force = false } = {}) {
+    const twdInput = document.getElementById('f-price-twd');
+    const foreignInput = document.getElementById('f-price-foreign');
+    const rateInput = document.getElementById('f-exchange-rate');
+    if (!twdInput || !foreignInput || !rateInput) return;
+    if (!force && twdInput.dataset.manual === 'true') return;
+    if (foreignInput.value === '' || rateInput.value === '') return;
+    const foreign = Number(foreignInput.value);
+    const rate = Number(rateInput.value);
+    if (Number.isFinite(foreign) && Number.isFinite(rate)) {
+      const value = foreign * rate;
+      if (Number.isFinite(value)) {
+        twdInput.value = value.toFixed(2);
+      }
+    }
+  }
+
   // ===== 呼叫 API =====
   async function apiListItems() {
     const res = await fetch('/api/items.php');
@@ -947,16 +1273,20 @@
     scene = new THREE.Scene();
     scene.background = null;
 
-    camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 100);
-    // 固定 45 度視角，適合 2~10 mm 尺寸
-    camera.position.set(6, 5, 7);
+    camera = new THREE.PerspectiveCamera(38, w / h, 0.1, 200);
+    camera.position.set(6.4, 6.8, 9.2);
     camera.lookAt(0, 0, 0);
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambient);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-    dir.position.set(5, 10, 7);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.85);
+    dir.position.set(8, 10, 6);
     scene.add(dir);
+    const fill = new THREE.DirectionalLight(0xbcd5ff, 0.4);
+    fill.position.set(-6, 4, -4);
+    scene.add(fill);
+    const hemi = new THREE.HemisphereLight(0xdbeafe, 0x0f172a, 0.3);
+    scene.add(hemi);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(w, h);
@@ -980,6 +1310,19 @@
     renderer.setSize(w, h);
   }
 
+  function computeMmScale(dims) {
+    if (!dims) return 0.2;
+    const maxDim = Math.max(
+      Number(dims.length) || 0,
+      Number(dims.width) || 0,
+      Number(dims.height) || 0,
+      1
+    );
+    const target = 12; // world units，視角再貼近一些
+    const scale = target / maxDim;
+    return Math.min(Math.max(scale, 0.25), 3.5);
+  }
+
   function setShapeGeometry(shapeType, dims) {
     if (!scene || !THREE) return;
 
@@ -992,7 +1335,7 @@
 
     if (!dims) return;
 
-    const mmScale = 0.2;
+    const mmScale = computeMmScale(dims);
     let geometry = null;
 
     if (shapeType === 'cylinder') {
@@ -1014,7 +1357,7 @@
     });
 
     shapeMesh = new THREE.Mesh(geometry, mat);
-    shapeMesh.rotation.set(0.4, -0.6, 0);
+    shapeMesh.rotation.set(-0.32, 0.55, 0.14);
     scene.add(shapeMesh);
   }
 
@@ -1048,32 +1391,74 @@
       return;
     }
 
-    let targetWidth = dims.length;
-    let targetHeight = orientation === 'top' ? dims.width : dims.height;
-    if (item.shape_type === 'cylinder') {
-      targetWidth = dims.length;
-      targetHeight = orientation === 'top' ? dims.length : dims.height;
-    }
+    const isCylinder = item.shape_type === 'cylinder';
+    const targetWidth = dims.length;
+    const targetHeight = orientation === 'top'
+      ? (isCylinder ? dims.length : dims.width)
+      : dims.height;
+    const safeWidth = Math.max(targetWidth, 0.1);
+    const safeHeight = Math.max(targetHeight, 0.1);
+    const canvasWidth = 220;
+    const canvasHeight = 150;
+    const margin = 32;
+    const drawableWidth = canvasWidth - margin * 2;
+    const drawableHeight = canvasHeight - margin * 2;
+    const scale = Math.min(drawableWidth / safeWidth, drawableHeight / safeHeight);
+    const shapeWidth = Math.max(safeWidth * scale, 20);
+    const shapeHeight = Math.max(safeHeight * scale, 20);
+    const shapeX = (canvasWidth - shapeWidth) / 2;
+    const shapeY = (canvasHeight - shapeHeight) / 2;
+    const markerId = `${id}-arrow`;
 
-    const maxDim = Math.max(targetWidth, targetHeight, 1);
-    const maxPixels = 100;
-    const scale = maxPixels / maxDim;
-    const displayWidth = Math.max(targetWidth * scale, 20);
-    const displayHeight = Math.max(targetHeight * scale, 20);
-    const borderRadius = (item.shape_type === 'cylinder' && orientation === 'top') ? '999px' : '10px';
-
-    let dimText = '';
-    if (item.shape_type === 'cylinder') {
-      dimText = orientation === 'top'
-        ? `Ø ${formatDimensionValue(dims.length)} mm`
-        : `Ø ${formatDimensionValue(dims.length)} × H ${formatDimensionValue(dims.height)} mm`;
+    let shapeElement = '';
+    let centerLines = '';
+    if (isCylinder && orientation === 'top') {
+      const radius = Math.min(shapeWidth, shapeHeight) / 2;
+      const cx = shapeX + shapeWidth / 2;
+      const cy = shapeY + shapeHeight / 2;
+      shapeElement = `<circle class="bp-shape-stroke" cx="${cx}" cy="${cy}" r="${radius}"></circle>`;
+      centerLines = `
+        <line class="bp-center-line" x1="${cx - radius}" y1="${cy}" x2="${cx + radius}" y2="${cy}"></line>
+        <line class="bp-center-line" x1="${cx}" y1="${cy - radius}" x2="${cx}" y2="${cy + radius}"></line>
+      `;
     } else {
-      dimText = orientation === 'top'
-        ? `${formatDimensionValue(dims.length)} × ${formatDimensionValue(dims.width)} mm`
-        : `${formatDimensionValue(dims.length)} × H ${formatDimensionValue(dims.height)} mm`;
+      shapeElement = `<rect class="bp-shape-stroke" x="${shapeX}" y="${shapeY}" width="${shapeWidth}" height="${shapeHeight}"></rect>`;
+      centerLines = `
+        <line class="bp-center-line" x1="${shapeX}" y1="${shapeY + shapeHeight / 2}" x2="${shapeX + shapeWidth}" y2="${shapeY + shapeHeight / 2}"></line>
+        <line class="bp-center-line" x1="${shapeX + shapeWidth / 2}" y1="${shapeY}" x2="${shapeX + shapeWidth / 2}" y2="${shapeY + shapeHeight}"></line>
+      `;
     }
 
-    container.innerHTML = `<div class="bp-shape" style="width:${displayWidth}px;height:${displayHeight}px;border-radius:${borderRadius};"></div><div class="bp-dims">${dimText}</div>`;
+    const horizontalLabel = (isCylinder && orientation === 'side')
+      ? `Ø ${formatDimensionValue(dims.length)} mm`
+      : `L ${formatDimensionValue(dims.length)} mm`;
+    const verticalLabel = orientation === 'top'
+      ? (isCylinder ? `Ø ${formatDimensionValue(dims.length)} mm` : `W ${formatDimensionValue(dims.width)} mm`)
+      : `H ${formatDimensionValue(dims.height)} mm`;
+
+    const horizontalY = Math.min(shapeY + shapeHeight + 28, canvasHeight - 10);
+    const verticalX = Math.max(shapeX - 28, 12);
+
+    const svg = `
+      <svg class="bp-svg" viewBox="0 0 ${canvasWidth} ${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="${markerId}" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L6,3 L0,6 z" fill="#0f172a"></path>
+          </marker>
+        </defs>
+        ${shapeElement}
+        ${centerLines}
+        <line class="bp-guide" x1="${shapeX}" y1="${shapeY + shapeHeight}" x2="${shapeX}" y2="${horizontalY}"></line>
+        <line class="bp-guide" x1="${shapeX + shapeWidth}" y1="${shapeY + shapeHeight}" x2="${shapeX + shapeWidth}" y2="${horizontalY}"></line>
+        <line class="bp-guide" x1="${shapeX}" y1="${shapeY}" x2="${verticalX}" y2="${shapeY}"></line>
+        <line class="bp-guide" x1="${shapeX}" y1="${shapeY + shapeHeight}" x2="${verticalX}" y2="${shapeY + shapeHeight}"></line>
+        <line class="bp-dim-line" x1="${shapeX}" y1="${horizontalY}" x2="${shapeX + shapeWidth}" y2="${horizontalY}" marker-start="url(#${markerId})" marker-end="url(#${markerId})"></line>
+        <line class="bp-dim-line" x1="${verticalX}" y1="${shapeY}" x2="${verticalX}" y2="${shapeY + shapeHeight}" marker-start="url(#${markerId})" marker-end="url(#${markerId})"></line>
+        <text class="bp-dim-text" x="${shapeX + shapeWidth / 2}" y="${horizontalY - 4}" text-anchor="middle">${horizontalLabel}</text>
+        <text class="bp-dim-text" text-anchor="middle" transform="translate(${verticalX - 6}, ${shapeY + shapeHeight / 2}) rotate(-90)">${verticalLabel}</text>
+      </svg>
+    `;
+    container.innerHTML = svg;
   }
 
   // ===== UI：列表 =====
@@ -1116,12 +1501,15 @@
       tr.appendChild(td(it.withdrawn_qty != null ? it.withdrawn_qty : 0));
       tr.appendChild(td(formatShortDate(it.purchase_date) || '-'));
       tr.appendChild(td(formatMaterialShort(it.material_type)));
-      tr.appendChild(td(it.unit_price != null ? it.unit_price : '-'));
+      tr.appendChild(td(formatPriceForList(it)));
 
       let totalStr = '-';
-      if (it.unit_price != null) {
-        const t = Number(it.unit_price) * Number(it.qty);
-        totalStr = t.toFixed(2);
+      const twdUnit = getTwdUnitPrice(it);
+      if (twdUnit != null && Number.isFinite(twdUnit)) {
+        const t = Number(twdUnit) * Number(it.qty);
+        if (Number.isFinite(t)) {
+          totalStr = t.toFixed(2);
+        }
       }
       tr.appendChild(td(totalStr));
       tr.appendChild(td(it.note || ''));
@@ -1342,12 +1730,7 @@
     infoVendor.textContent = it.vendor;
     infoQty.textContent = it.qty + ' 塊' + (archived ? '（已用罄）' : '');
 
-    if (it.unit_price != null) {
-      const total = (Number(it.unit_price) * Number(it.qty)).toFixed(2);
-      infoPrice.textContent = it.unit_price + ' / 塊，總價 ' + total;
-    } else {
-      infoPrice.textContent = '-';
-    }
+    infoPrice.textContent = formatPriceDetail(it);
     infoNote.textContent = it.note || '-';
     infoPurchase.textContent = formatShortDate(it.purchase_date) || '-';
     infoMaterial.textContent = formatMaterial(it.material_type);
@@ -1476,10 +1859,14 @@
     document.getElementById('f-diameter').value = '';
     document.getElementById('f-height-cylinder').value = '';
     document.getElementById('f-qty').value = '1';
-    document.getElementById('f-price').value = '';
+    document.getElementById('f-price-foreign').value = '';
+    setCurrencySelection('CNY');
+    document.getElementById('f-exchange-rate').value = '';
+    document.getElementById('f-price-twd').value = '';
     document.getElementById('f-note').value = '';
     document.getElementById('f-purchase-date').value = '';
     document.getElementById('f-material').value = '';
+    resetPriceFieldStates();
     const err = document.getElementById('add-error');
     err.style.display = 'none';
     err.textContent = '';
@@ -1491,16 +1878,22 @@
     if (defaultShape) defaultShape.checked = true;
     updateDimensionFieldsVisibility();
     editingItemId = null;
+    autoFetchExchangeRate();
   }
 
   function loadItemToForm(item) {
     if (!item) return;
     document.getElementById('f-vendor').value = item.vendor || '';
     document.getElementById('f-qty').value = Number(item.qty);
-    document.getElementById('f-price').value = item.unit_price != null ? item.unit_price : '';
+    document.getElementById('f-price-foreign').value = item.unit_price_foreign != null ? item.unit_price_foreign : '';
+    setCurrencySelection(item.currency_code);
+    document.getElementById('f-exchange-rate').value = item.exchange_rate != null ? item.exchange_rate : '';
+    const twdValue = item.unit_price_twd != null ? item.unit_price_twd : (item.unit_price != null ? item.unit_price : '');
+    document.getElementById('f-price-twd').value = twdValue;
     document.getElementById('f-note').value = item.note || '';
     document.getElementById('f-purchase-date').value = item.purchase_date || '';
     document.getElementById('f-material').value = item.material_type || '';
+    resetPriceFieldStates();
 
     const shape = item.shape_type === 'cylinder' ? 'cylinder' : 'box';
     document.querySelectorAll('input[name="f-shape"]').forEach(radio => {
@@ -1537,7 +1930,9 @@
 
     const vendor = document.getElementById('f-vendor').value.trim();
     const qty = Number(document.getElementById('f-qty').value);
-    const priceStr = document.getElementById('f-price').value;
+    const foreignPriceStr = document.getElementById('f-price-foreign').value;
+    const exchangeRateStr = document.getElementById('f-exchange-rate').value;
+    const priceTwdStr = document.getElementById('f-price-twd').value;
     const note = document.getElementById('f-note').value.trim();
     const purchaseDate = document.getElementById('f-purchase-date').value;
     const materialType = document.getElementById('f-material').value;
@@ -1559,15 +1954,52 @@
       return;
     }
 
-    let unitPrice = null;
-    if (priceStr) {
-      const p = Number(priceStr);
-      if (!isFinite(p) || p < 0) {
-        err.textContent = '單價格式錯誤。';
+    const currencySelect = getCurrencySelect();
+    const currencyCode = getCurrentCurrencyCode();
+    if (currencySelect && currencySelect.value === CUSTOM_CURRENCY_VALUE && !currencyCode) {
+      err.textContent = '請輸入自訂幣別（例如 EUR）。';
+      err.style.display = 'block';
+      return;
+    }
+    if (currencyCode && !/^[A-Z]{2,5}$/.test(currencyCode)) {
+      err.textContent = '幣別請輸入 2~5 個英文字母（例如 USD）。';
+      err.style.display = 'block';
+      return;
+    }
+
+    let unitPriceForeign = null;
+    if (foreignPriceStr) {
+      const value = Number(foreignPriceStr);
+      if (!isFinite(value) || value < 0) {
+        err.textContent = '外幣單價格式錯誤。';
         err.style.display = 'block';
         return;
       }
-      unitPrice = p;
+      unitPriceForeign = value;
+    }
+
+    let exchangeRate = null;
+    if (exchangeRateStr) {
+      const value = Number(exchangeRateStr);
+      if (!isFinite(value) || value <= 0) {
+        err.textContent = '匯率必須大於 0。';
+        err.style.display = 'block';
+        return;
+      }
+      exchangeRate = value;
+    }
+
+    let unitPriceTwd = null;
+    if (priceTwdStr) {
+      const value = Number(priceTwdStr);
+      if (!isFinite(value) || value < 0) {
+        err.textContent = '台幣單價格式錯誤。';
+        err.style.display = 'block';
+        return;
+      }
+      unitPriceTwd = value;
+    } else if (unitPriceForeign != null && exchangeRate != null) {
+      unitPriceTwd = Number(unitPriceForeign) * Number(exchangeRate);
     }
 
     const payload = {
@@ -1578,7 +2010,11 @@
       height: dimensions.height,
       shape_type: dimensions.shapeType,
       qty: qty,
-      unit_price: unitPrice,
+      unit_price: unitPriceTwd,
+      unit_price_twd: unitPriceTwd,
+      unit_price_foreign: unitPriceForeign,
+      currency_code: currencyCode || null,
+      exchange_rate: exchangeRate,
       note: note
     };
     if (purchaseDate) {
@@ -1676,6 +2112,71 @@
       radio.addEventListener('change', updateDimensionFieldsVisibility);
     });
     updateDimensionFieldsVisibility();
+
+    const priceForeignInput = document.getElementById('f-price-foreign');
+    if (priceForeignInput) {
+      priceForeignInput.addEventListener('input', () => updateTwdPriceField());
+    }
+    const currencySelectEl = getCurrencySelect();
+    const currencyCustomInput = getCustomCurrencyInput();
+    if (currencySelectEl) {
+      currencySelectEl.addEventListener('change', () => {
+        if (currencySelectEl.value === CUSTOM_CURRENCY_VALUE) {
+          if (currencyCustomInput) {
+            currencyCustomInput.style.display = 'inline-block';
+            currencyCustomInput.focus();
+          }
+        } else if (currencyCustomInput) {
+          currencyCustomInput.style.display = 'none';
+          currencyCustomInput.value = '';
+        }
+        autoFetchExchangeRate();
+      });
+    }
+    if (currencyCustomInput) {
+      const handleCustomCurrencyChange = () => {
+        currencyCustomInput.value = normalizeCurrencyCode(currencyCustomInput.value);
+        autoFetchExchangeRate();
+      };
+      currencyCustomInput.addEventListener('change', handleCustomCurrencyChange);
+      currencyCustomInput.addEventListener('blur', handleCustomCurrencyChange);
+    }
+
+    setCurrencySelection('CNY');
+    autoFetchExchangeRate();
+    const exchangeInput = document.getElementById('f-exchange-rate');
+    if (exchangeInput) {
+      exchangeInput.addEventListener('input', () => {
+        exchangeInput.dataset.manual = 'true';
+        updateTwdPriceField({ force: true });
+      });
+    }
+    const purchaseDateInput = document.getElementById('f-purchase-date');
+    if (purchaseDateInput) {
+      purchaseDateInput.addEventListener('change', () => autoFetchExchangeRate());
+    }
+    const twdInput = document.getElementById('f-price-twd');
+    if (twdInput) {
+      twdInput.addEventListener('input', () => {
+        twdInput.dataset.manual = 'true';
+      });
+    }
+    const refreshRateBtn = document.getElementById('btn-refresh-rate');
+    if (refreshRateBtn) {
+      refreshRateBtn.addEventListener('click', e => {
+        e.preventDefault();
+        autoFetchExchangeRate(true);
+      });
+    }
+    const recalcBtn = document.getElementById('btn-recalc-twd');
+    if (recalcBtn) {
+      recalcBtn.addEventListener('click', e => {
+        e.preventDefault();
+        const twdField = document.getElementById('f-price-twd');
+        if (twdField) delete twdField.dataset.manual;
+        updateTwdPriceField({ force: true });
+      });
+    }
 
     try {
       await refreshItemsFromServer();
