@@ -33,27 +33,49 @@ if ($method === 'POST') {
     $width     = (float)($data['width'] ?? 0);
     $height    = (float)($data['height'] ?? 0);
     $qty       = (int)($data['qty'] ?? 0);
+    // 是否有單價（舊欄位）
+    $hasUnitPriceLegacy = isset($data['unit_price']);
     $unitPriceLegacy = null;
-    if (isset($data['unit_price']) && $data['unit_price'] !== '') {
+    if ($hasUnitPriceLegacy && $data['unit_price'] !== '') {
         $unitPriceLegacy = (float)$data['unit_price'];
     }
+
+    // 是否有外幣單價
+    $hasUnitPriceForeign = isset($data['unit_price_foreign']);
     $unitPriceForeign = null;
-    if (isset($data['unit_price_foreign']) && $data['unit_price_foreign'] !== '') {
+    if ($hasUnitPriceForeign && $data['unit_price_foreign'] !== '') {
         $unitPriceForeign = (float)$data['unit_price_foreign'];
     }
+
+    // 是否有幣別代碼
+    $hasCurrencyCode = array_key_exists('currency_code', $data);
     $currencyCode = null;
-    if (array_key_exists('currency_code', $data)) {
+    if ($hasCurrencyCode) {
         $currencyCode = strtoupper(trim((string)$data['currency_code']));
         if ($currencyCode === '') {
             $currencyCode = null;
         }
     }
+ main
+        $currencyCode = strtoupper(trim((string)$data['currency_code']));
+        if ($currencyCode === '') {
+            $currencyCode = null;
+        }
+    }
+    // 匯率
+    $hasExchangeRate = isset($data['exchange_rate']);
     $exchangeRate = null;
-    if (isset($data['exchange_rate']) && $data['exchange_rate'] !== '') {
+    if ($hasExchangeRate && $data['exchange_rate'] !== '') {
         $exchangeRate = (float)$data['exchange_rate'];
     }
+
+    // 換算後 TWD 單價
+    $hasUnitPriceTwd = isset($data['unit_price_twd']);
     $unitPriceTwd = null;
-    if (isset($data['unit_price_twd']) && $data['unit_price_twd'] !== '') {
+    if ($hasUnitPriceTwd && $data['unit_price_twd'] !== '') {
+        $unitPriceTwd = (float)$data['unit_price_twd'];
+    }
+main
         $unitPriceTwd = (float)$data['unit_price_twd'];
     }
     $note      = trim($data['note'] ?? '');
@@ -124,6 +146,18 @@ if ($method === 'POST') {
     if ($existing) {
         $isArchived = (int)$existing['is_archived'];
         $depletedAt = $existing['depleted_at'] ?? null;
+        if (!$hasUnitPriceForeign) {
+            $unitPriceForeign = $existing['unit_price_foreign'];
+        }
+        if (!$hasCurrencyCode) {
+            $currencyCode = $existing['currency_code'];
+        }
+        if (!$hasExchangeRate) {
+            $exchangeRate = $existing['exchange_rate'];
+        }
+        if (!$hasUnitPriceTwd) {
+            $unitPriceTwd = $existing['unit_price_twd'];
+        }
     }
     if ($qty <= 0) {
         $isArchived = 1;
@@ -134,6 +168,17 @@ if ($method === 'POST') {
         $isArchived = 0;
         $depletedAt = null;
     }
+
+    if ($unitPriceTwd === null && $unitPriceLegacy !== null) {
+        $unitPriceTwd = $unitPriceLegacy;
+    }
+    if ($unitPriceTwd === null && $unitPriceForeign !== null && $exchangeRate !== null) {
+        $unitPriceTwd = $unitPriceForeign * $exchangeRate;
+    }
+    if ($unitPriceTwd === null && $existing && !$hasUnitPriceLegacy && !$hasUnitPriceForeign && !$hasUnitPriceTwd) {
+        $unitPriceTwd = $existing['unit_price_twd'] ?? $existing['unit_price'];
+    }
+    $unitPrice = $unitPriceTwd;
 
     if ($id > 0) {
         // 更新
@@ -235,4 +280,5 @@ if ($method === 'DELETE') {
     json_response(['ok' => true]);
 }
 
-json_response(['error' => 'Method not allowed'], 405);
+    json_response(['error' => 'Method not allowed'], 405);
+

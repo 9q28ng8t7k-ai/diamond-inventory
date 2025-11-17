@@ -139,6 +139,7 @@
       flex: 1;
       display: none;
     }
+
     .micro-btn {
       border-radius: 999px;
       border: 1px solid #d1d5db;
@@ -586,23 +587,27 @@
       <div class="inline-fields">
         <div class="field">
           <label>幣別</label>
-          <div class="currency-row">
-            <select id="f-currency">
-              <option value="CNY" selected>人民幣（CNY）</option>
-              <option value="USD">美元（USD）</option>
-              <option value="JPY">日圓（JPY）</option>
-              <option value="" data-placeholder="true">未指定</option>
-              <option value="__custom__">其他（自訂）</option>
-            </select>
-            <input
-              id="f-currency-custom"
-              class="custom-currency-input"
-              type="text"
-              placeholder="輸入幣別"
-              maxlength="5"
-              style="text-transform:uppercase;"
-            />
-          </div>
+<div class="currency-row">
+  <!-- 下拉式選單 -->
+  <select id="f-currency">
+    <option value="CNY" selected>人民幣（CNY）</option>
+    <option value="USD">美元（USD）</option>
+    <option value="JPY">日圓（JPY）</option>
+    <option value="" data-placeholder="true">未指定</option>
+    <option value="__custom__">其他（自訂）</option>
+  </select>
+
+  <!-- 自訂幣別 -->
+  <input
+    id="f-currency-custom"
+    class="custom-currency-input"
+    type="text"
+    placeholder="輸入幣別或直接輸入（相容舊版）"
+    maxlength="5"
+    style="text-transform:uppercase;"
+  />
+</div>
+ main
         </div>
         <div class="field" style="flex:1;">
           <label>匯率（→ TWD）</label>
@@ -612,6 +617,18 @@
           </div>
           <div class="hint" id="exchange-hint">預設會依購入日抓取匯率，也可以自行輸入。</div>
         </div>
+      </div>
+
+      <div class="field">
+        <label>台幣單價 / 塊</label>
+        <div class="input-with-action">
+          <input id="f-price-twd" type="number" min="0" step="0.01" placeholder="自動換算" />
+          <button type="button" class="micro-btn" id="btn-recalc-twd">重新換算</button>
+        </div>
+      </div>
+ main
+        </div>
+        <div class="hint">系統會用「外幣 × 匯率」預填，也可以覆寫。</div>
       </div>
 
       <div class="field">
@@ -945,7 +962,7 @@
     USD: { rate: 32.2, label: '美元' },
     JPY: { rate: 0.23, label: '日圓' }
   };
-
+main
   function normalizeCurrencyCode(raw) {
     if (!raw) return '';
     return String(raw).trim().toUpperCase().slice(0, 5);
@@ -996,7 +1013,7 @@
       }
     }
   }
-
+ main
   function getTwdUnitPrice(item) {
     if (!item) return null;
     const candidates = [item.unit_price_twd, item.unit_price];
@@ -1097,21 +1114,57 @@
   async function autoFetchExchangeRate(force = false) {
     const rateInput = document.getElementById('f-exchange-rate');
     if (!rateInput) return;
-    const currency = getCurrentCurrencyCode();
+
+    // 新版：下拉＋自訂欄位
     const select = getCurrencySelect();
+    const customInput = getCustomCurrencyInput();
+
+    // 舊版：單一文字輸入欄位
+    const legacyCurrencyInput = document.getElementById('f-currency');
+
+    let currency = '';
+
+    if (select || customInput) {
+      // 新版 UI：用選單＋自訂邏輯取值
+      currency = getCurrentCurrencyCode();
+    } else if (legacyCurrencyInput) {
+      // 舊版 UI：直接從 input 正規化
+      currency = normalizeCurrencyCode(legacyCurrencyInput.value);
+      legacyCurrencyInput.value = currency;
+    }
+
     if (!currency) {
       if (force) {
-        if (select && select.value === CUSTOM_CURRENCY_VALUE) {
-          updateExchangeHint('請輸入自訂幣別（例如 EUR）。', true);
+        if (select) {
+          if (select.value === CUSTOM_CURRENCY_VALUE) {
+            // 新版＋自訂幣別（強制）
+            updateExchangeHint('請輸入自訂幣別（例如 EUR）。', true);
+          } else {
+            // 新版＋尚未選幣別（強制）
+            updateExchangeHint('請選擇幣別（例如 CNY）。', true);
+          }
         } else {
-          updateExchangeHint('請選擇幣別（例如 CNY）。', true);
+          // 舊版（強制）
+          updateExchangeHint('請輸入幣別（例如 USD）。', true);
         }
       } else {
-        if (select && select.value === CUSTOM_CURRENCY_VALUE) {
-          updateExchangeHint('請輸入自訂幣別以查詢匯率。');
+        if (select) {
+          if (select.value === CUSTOM_CURRENCY_VALUE) {
+            // 新版＋自訂幣別（非強制）
+            updateExchangeHint('請輸入自訂幣別以查詢匯率。');
+          } else {
+            // 新版＋尚未選幣別（非強制）
+            updateExchangeHint('請選擇幣別以查詢匯率。');
+          }
         } else {
-          updateExchangeHint('請選擇幣別以查詢匯率。');
+          // 舊版（非強制）
+          updateExchangeHint('請輸入幣別以查詢匯率。');
         }
+      }
+      rateInput.value = '';
+      return;
+    }
+ main
       }
       return;
     }
@@ -1125,33 +1178,61 @@
     updateExchangeHint('匯率查詢中…');
     let rate = null;
     let hadError = false;
+
     try {
       rate = await fetchExchangeRate(currency, purchaseDate);
     } catch (err) {
+      // 記錄有錯誤，但先不要急著回傳，後面會決定要不要套 fallback
       hadError = true;
     }
+
+    // 無論成功或失敗，都先檢查 token，避免舊請求覆蓋新結果
     if (token !== rateRequestId) return;
+
     if (rate != null) {
+      // 有成功拿到匯率
       rateInput.value = rate.toFixed(4);
       delete rateInput.dataset.manual;
-      updateExchangeHint(purchaseDate ? `${currency} 對 TWD（${purchaseDate}）` : `${currency} 對 TWD 最新匯率`);
+      updateExchangeHint(
+        purchaseDate
+          ? `${currency} 對 TWD（${purchaseDate}）`
+          : `${currency} 對 TWD 最新匯率`
+      );
       const twdInput = document.getElementById('f-price-twd');
       if (twdInput) delete twdInput.dataset.manual;
       updateTwdPriceField({ force: true });
       return;
     }
+
+    // 沒有拿到即時匯率 → 嘗試使用預設 fallback
     const fallback = FALLBACK_RATES[currency];
     if (fallback) {
       rateInput.value = fallback.rate.toFixed(4);
       delete rateInput.dataset.manual;
-      const prefix = hadError ? '無法連線匯率服務，已套用預設' : '查不到這個幣別的即時匯率，已套用預設';
+
+      const prefix = hadError
+        ? '無法連線匯率服務，已套用預設'
+        : '查不到這個幣別的即時匯率，已套用預設';
+
       const displayName = fallback.label ? `${fallback.label}（${currency}）` : currency;
-      updateExchangeHint(`${prefix} ${displayName} → TWD ${fallback.rate.toFixed(4)}。`);
+
+      updateExchangeHint(
+        `${prefix} ${displayName} → TWD ${fallback.rate.toFixed(4)}。`
+      );
+
       const twdInput = document.getElementById('f-price-twd');
       if (twdInput) delete twdInput.dataset.manual;
       updateTwdPriceField({ force: true });
     } else {
-      updateExchangeHint(hadError ? '匯率取得失敗，可手動輸入。' : '查不到這個幣別的匯率，請手動填寫。', true);
+      // 既沒有拿到即時匯率，也沒有 fallback
+      updateExchangeHint(
+        hadError
+          ? '匯率取得失敗，可手動輸入。'
+          : '查不到這個幣別的匯率，請手動填寫。',
+        true
+      );
+    }
+main
     }
   }
 
@@ -1275,6 +1356,7 @@
 
     camera = new THREE.PerspectiveCamera(38, w / h, 0.1, 200);
     camera.position.set(6.4, 6.8, 9.2);
+    main
     camera.lookAt(0, 0, 0);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.6);
@@ -1321,6 +1403,7 @@
     const target = 12; // world units，視角再貼近一些
     const scale = target / maxDim;
     return Math.min(Math.max(scale, 0.25), 3.5);
+ main
   }
 
   function setShapeGeometry(shapeType, dims) {
@@ -1358,6 +1441,7 @@
 
     shapeMesh = new THREE.Mesh(geometry, mat);
     shapeMesh.rotation.set(-0.32, 0.55, 0.14);
+ main
     scene.add(shapeMesh);
   }
 
@@ -1861,6 +1945,7 @@
     document.getElementById('f-qty').value = '1';
     document.getElementById('f-price-foreign').value = '';
     setCurrencySelection('CNY');
+ main
     document.getElementById('f-exchange-rate').value = '';
     document.getElementById('f-price-twd').value = '';
     document.getElementById('f-note').value = '';
@@ -1886,7 +1971,18 @@
     document.getElementById('f-vendor').value = item.vendor || '';
     document.getElementById('f-qty').value = Number(item.qty);
     document.getElementById('f-price-foreign').value = item.unit_price_foreign != null ? item.unit_price_foreign : '';
-    setCurrencySelection(item.currency_code);
+    // 依照目前 UI 型態，決定怎麼填回幣別
+    if (getCurrencySelect() || getCustomCurrencyInput()) {
+      // 新版 UI：下拉 + 自訂幣別
+      setCurrencySelection(item.currency_code);
+    } else {
+      // 舊版 UI：單一文字輸入
+      const currencyInput = document.getElementById('f-currency');
+      if (currencyInput) {
+        currencyInput.value = normalizeCurrencyCode(item.currency_code);
+      }
+    }
+main
     document.getElementById('f-exchange-rate').value = item.exchange_rate != null ? item.exchange_rate : '';
     const twdValue = item.unit_price_twd != null ? item.unit_price_twd : (item.unit_price != null ? item.unit_price : '');
     document.getElementById('f-price-twd').value = twdValue;
@@ -1931,6 +2027,7 @@
     const vendor = document.getElementById('f-vendor').value.trim();
     const qty = Number(document.getElementById('f-qty').value);
     const foreignPriceStr = document.getElementById('f-price-foreign').value;
+ main
     const exchangeRateStr = document.getElementById('f-exchange-rate').value;
     const priceTwdStr = document.getElementById('f-price-twd').value;
     const note = document.getElementById('f-note').value.trim();
@@ -1955,12 +2052,28 @@
     }
 
     const currencySelect = getCurrencySelect();
-    const currencyCode = getCurrentCurrencyCode();
-    if (currencySelect && currencySelect.value === CUSTOM_CURRENCY_VALUE && !currencyCode) {
-      err.textContent = '請輸入自訂幣別（例如 EUR）。';
-      err.style.display = 'block';
-      return;
+    let currencyCode = '';
+
+    if (currencySelect || getCustomCurrencyInput()) {
+      // 新版 UI：下拉 + 自訂幣別
+      currencyCode = getCurrentCurrencyCode();
+
+      // 若選的是「自訂幣別」但沒輸入內容 → 報錯
+      if (currencySelect && currencySelect.value === CUSTOM_CURRENCY_VALUE && !currencyCode) {
+        err.textContent = '請輸入自訂幣別（例如 EUR）。';
+        err.style.display = 'block';
+        return;
+      }
+    } else {
+      // 舊版 UI：只有單一文字輸入欄位 #f-currency
+      const legacyCurrencyInput = document.getElementById('f-currency');
+      currencyCode = legacyCurrencyInput ? normalizeCurrencyCode(legacyCurrencyInput.value) : '';
+      if (legacyCurrencyInput) {
+        // 正規化後寫回去
+        legacyCurrencyInput.value = currencyCode;
+      }
     }
+main
     if (currencyCode && !/^[A-Z]{2,5}$/.test(currencyCode)) {
       err.textContent = '幣別請輸入 2~5 個英文字母（例如 USD）。';
       err.style.display = 'block';
@@ -2119,7 +2232,9 @@
     }
     const currencySelectEl = getCurrencySelect();
     const currencyCustomInput = getCustomCurrencyInput();
+
     if (currencySelectEl) {
+      // 新版：下拉 + 自訂幣別
       currencySelectEl.addEventListener('change', () => {
         if (currencySelectEl.value === CUSTOM_CURRENCY_VALUE) {
           if (currencyCustomInput) {
@@ -2132,18 +2247,36 @@
         }
         autoFetchExchangeRate();
       });
-    }
-    if (currencyCustomInput) {
-      const handleCustomCurrencyChange = () => {
-        currencyCustomInput.value = normalizeCurrencyCode(currencyCustomInput.value);
-        autoFetchExchangeRate();
-      };
-      currencyCustomInput.addEventListener('change', handleCustomCurrencyChange);
-      currencyCustomInput.addEventListener('blur', handleCustomCurrencyChange);
-    }
 
-    setCurrencySelection('CNY');
-    autoFetchExchangeRate();
+      if (currencyCustomInput) {
+        const handleCustomCurrencyChange = () => {
+          currencyCustomInput.value = normalizeCurrencyCode(currencyCustomInput.value);
+          autoFetchExchangeRate();
+        };
+        currencyCustomInput.addEventListener('change', handleCustomCurrencyChange);
+        currencyCustomInput.addEventListener('blur', handleCustomCurrencyChange);
+      }
+
+      // 新版預設 CNY，直接抓匯率
+      setCurrencySelection('CNY');
+      autoFetchExchangeRate();
+    } else {
+      // 舊版：只有一個文字輸入框 #f-currency
+      const currencyInput = document.getElementById('f-currency');
+      if (currencyInput) {
+        const handleCurrencyChange = () => {
+          currencyInput.value = normalizeCurrencyCode(currencyInput.value);
+          if (currencyInput.value) {
+            autoFetchExchangeRate();
+          } else {
+            updateExchangeHint('請輸入幣別以查詢匯率。');
+          }
+        };
+        currencyInput.addEventListener('change', handleCurrencyChange);
+        currencyInput.addEventListener('blur', handleCurrencyChange);
+      }
+    }
+main
     const exchangeInput = document.getElementById('f-exchange-rate');
     if (exchangeInput) {
       exchangeInput.addEventListener('input', () => {
