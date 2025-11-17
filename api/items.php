@@ -33,16 +33,21 @@ if ($method === 'POST') {
     $width     = (float)($data['width'] ?? 0);
     $height    = (float)($data['height'] ?? 0);
     $qty       = (int)($data['qty'] ?? 0);
-    $hasUnitPriceLegacy = array_key_exists('unit_price', $data);
+    // 是否有單價（舊欄位）
+    $hasUnitPriceLegacy = isset($data['unit_price']);
     $unitPriceLegacy = null;
     if ($hasUnitPriceLegacy && $data['unit_price'] !== '') {
         $unitPriceLegacy = (float)$data['unit_price'];
     }
-    $hasUnitPriceForeign = array_key_exists('unit_price_foreign', $data);
+
+    // 是否有外幣單價
+    $hasUnitPriceForeign = isset($data['unit_price_foreign']);
     $unitPriceForeign = null;
     if ($hasUnitPriceForeign && $data['unit_price_foreign'] !== '') {
         $unitPriceForeign = (float)$data['unit_price_foreign'];
     }
+
+    // 是否有幣別代碼
     $hasCurrencyCode = array_key_exists('currency_code', $data);
     $currencyCode = null;
     if ($hasCurrencyCode) {
@@ -51,14 +56,26 @@ if ($method === 'POST') {
             $currencyCode = null;
         }
     }
-    $hasExchangeRate = array_key_exists('exchange_rate', $data);
+ main
+        $currencyCode = strtoupper(trim((string)$data['currency_code']));
+        if ($currencyCode === '') {
+            $currencyCode = null;
+        }
+    }
+    // 匯率
+    $hasExchangeRate = isset($data['exchange_rate']);
     $exchangeRate = null;
     if ($hasExchangeRate && $data['exchange_rate'] !== '') {
         $exchangeRate = (float)$data['exchange_rate'];
     }
-    $hasUnitPriceTwd = array_key_exists('unit_price_twd', $data);
+
+    // 換算後 TWD 單價
+    $hasUnitPriceTwd = isset($data['unit_price_twd']);
     $unitPriceTwd = null;
     if ($hasUnitPriceTwd && $data['unit_price_twd'] !== '') {
+        $unitPriceTwd = (float)$data['unit_price_twd'];
+    }
+main
         $unitPriceTwd = (float)$data['unit_price_twd'];
     }
     $note      = trim($data['note'] ?? '');
@@ -103,6 +120,14 @@ if ($method === 'POST') {
     if ($errors) {
         json_response(['error' => implode('; ', $errors)], 400);
     }
+
+    if ($unitPriceTwd === null && $unitPriceLegacy !== null) {
+        $unitPriceTwd = $unitPriceLegacy;
+    }
+    if ($unitPriceTwd === null && $unitPriceForeign !== null && $exchangeRate !== null) {
+        $unitPriceTwd = $unitPriceForeign * $exchangeRate;
+    }
+    $unitPrice = $unitPriceTwd;
 
     $now = gmdate('Y-m-d H:i:s');
 
