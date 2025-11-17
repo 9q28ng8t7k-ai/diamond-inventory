@@ -1160,9 +1160,6 @@
       rateInput.value = '';
       return;
     }
-      }
-      return;
-    }
     if (!force && rateInput.dataset.manual === 'true' && rateInput.value) {
       updateExchangeHint('匯率為手動輸入。');
       return;
