@@ -41,6 +41,10 @@ function ensure_latest_schema(PDO $db): void
         'material_type' => "ALTER TABLE items ADD COLUMN material_type TEXT",
         'is_archived'   => "ALTER TABLE items ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0",
         'depleted_at'   => "ALTER TABLE items ADD COLUMN depleted_at TEXT",
+        'unit_price_foreign' => "ALTER TABLE items ADD COLUMN unit_price_foreign REAL",
+        'currency_code' => "ALTER TABLE items ADD COLUMN currency_code TEXT",
+        'exchange_rate' => "ALTER TABLE items ADD COLUMN exchange_rate REAL",
+        'unit_price_twd'=> "ALTER TABLE items ADD COLUMN unit_price_twd REAL",
     ];
     $added = [];
     foreach ($requiredColumns as $name => $sql) {
@@ -53,5 +57,8 @@ function ensure_latest_schema(PDO $db): void
     if (in_array('is_archived', $added, true) || in_array('depleted_at', $added, true)) {
         $db->exec("UPDATE items SET is_archived = 1 WHERE qty <= 0");
         $db->exec("UPDATE items SET depleted_at = COALESCE(depleted_at, updated_at, created_at) WHERE is_archived = 1 AND depleted_at IS NULL");
+    }
+    if (in_array('unit_price_twd', $added, true)) {
+        $db->exec("UPDATE items SET unit_price_twd = unit_price WHERE unit_price_twd IS NULL");
     }
 }

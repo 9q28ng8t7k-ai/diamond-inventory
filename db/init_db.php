@@ -27,6 +27,10 @@ CREATE TABLE IF NOT EXISTS items (
     height         REAL NOT NULL,
     qty            INTEGER NOT NULL DEFAULT 0,
     unit_price     REAL,
+    unit_price_foreign REAL,
+    currency_code  TEXT,
+    exchange_rate  REAL,
+    unit_price_twd REAL,
     note           TEXT,
     shape_type     TEXT NOT NULL DEFAULT 'box',
     purchase_date  TEXT,
@@ -51,6 +55,10 @@ $requiredColumns = [
     'material_type' => "ALTER TABLE items ADD COLUMN material_type TEXT",
     'is_archived'   => "ALTER TABLE items ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0",
     'depleted_at'   => "ALTER TABLE items ADD COLUMN depleted_at TEXT",
+    'unit_price_foreign' => "ALTER TABLE items ADD COLUMN unit_price_foreign REAL",
+    'currency_code' => "ALTER TABLE items ADD COLUMN currency_code TEXT",
+    'exchange_rate' => "ALTER TABLE items ADD COLUMN exchange_rate REAL",
+    'unit_price_twd'=> "ALTER TABLE items ADD COLUMN unit_price_twd REAL",
 ];
 
 foreach ($requiredColumns as $name => $sql) {
