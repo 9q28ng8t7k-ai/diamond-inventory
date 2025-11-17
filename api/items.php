@@ -33,27 +33,32 @@ if ($method === 'POST') {
     $width     = (float)($data['width'] ?? 0);
     $height    = (float)($data['height'] ?? 0);
     $qty       = (int)($data['qty'] ?? 0);
+    $hasUnitPriceLegacy = array_key_exists('unit_price', $data);
     $unitPriceLegacy = null;
-    if (isset($data['unit_price']) && $data['unit_price'] !== '') {
+    if ($hasUnitPriceLegacy && $data['unit_price'] !== '') {
         $unitPriceLegacy = (float)$data['unit_price'];
     }
+    $hasUnitPriceForeign = array_key_exists('unit_price_foreign', $data);
     $unitPriceForeign = null;
-    if (isset($data['unit_price_foreign']) && $data['unit_price_foreign'] !== '') {
+    if ($hasUnitPriceForeign && $data['unit_price_foreign'] !== '') {
         $unitPriceForeign = (float)$data['unit_price_foreign'];
     }
+    $hasCurrencyCode = array_key_exists('currency_code', $data);
     $currencyCode = null;
-    if (array_key_exists('currency_code', $data)) {
+    if ($hasCurrencyCode) {
         $currencyCode = strtoupper(trim((string)$data['currency_code']));
         if ($currencyCode === '') {
             $currencyCode = null;
         }
     }
+    $hasExchangeRate = array_key_exists('exchange_rate', $data);
     $exchangeRate = null;
-    if (isset($data['exchange_rate']) && $data['exchange_rate'] !== '') {
+    if ($hasExchangeRate && $data['exchange_rate'] !== '') {
         $exchangeRate = (float)$data['exchange_rate'];
     }
+    $hasUnitPriceTwd = array_key_exists('unit_price_twd', $data);
     $unitPriceTwd = null;
-    if (isset($data['unit_price_twd']) && $data['unit_price_twd'] !== '') {
+    if ($hasUnitPriceTwd && $data['unit_price_twd'] !== '') {
         $unitPriceTwd = (float)$data['unit_price_twd'];
     }
     $note      = trim($data['note'] ?? '');
@@ -99,14 +104,6 @@ if ($method === 'POST') {
         json_response(['error' => implode('; ', $errors)], 400);
     }
 
-    if ($unitPriceTwd === null && $unitPriceLegacy !== null) {
-        $unitPriceTwd = $unitPriceLegacy;
-    }
-    if ($unitPriceTwd === null && $unitPriceForeign !== null && $exchangeRate !== null) {
-        $unitPriceTwd = $unitPriceForeign * $exchangeRate;
-    }
-    $unitPrice = $unitPriceTwd;
-
     $now = gmdate('Y-m-d H:i:s');
 
     $existing = null;
@@ -124,6 +121,18 @@ if ($method === 'POST') {
     if ($existing) {
         $isArchived = (int)$existing['is_archived'];
         $depletedAt = $existing['depleted_at'] ?? null;
+        if (!$hasUnitPriceForeign) {
+            $unitPriceForeign = $existing['unit_price_foreign'];
+        }
+        if (!$hasCurrencyCode) {
+            $currencyCode = $existing['currency_code'];
+        }
+        if (!$hasExchangeRate) {
+            $exchangeRate = $existing['exchange_rate'];
+        }
+        if (!$hasUnitPriceTwd) {
+            $unitPriceTwd = $existing['unit_price_twd'];
+        }
     }
     if ($qty <= 0) {
         $isArchived = 1;
@@ -134,6 +143,17 @@ if ($method === 'POST') {
         $isArchived = 0;
         $depletedAt = null;
     }
+
+    if ($unitPriceTwd === null && $unitPriceLegacy !== null) {
+        $unitPriceTwd = $unitPriceLegacy;
+    }
+    if ($unitPriceTwd === null && $unitPriceForeign !== null && $exchangeRate !== null) {
+        $unitPriceTwd = $unitPriceForeign * $exchangeRate;
+    }
+    if ($unitPriceTwd === null && $existing && !$hasUnitPriceLegacy && !$hasUnitPriceForeign && !$hasUnitPriceTwd) {
+        $unitPriceTwd = $existing['unit_price_twd'] ?? $existing['unit_price'];
+    }
+    $unitPrice = $unitPriceTwd;
 
     if ($id > 0) {
         // 更新
@@ -235,4 +255,5 @@ if ($method === 'DELETE') {
     json_response(['ok' => true]);
 }
 
-json_response(['error' => 'Method not allowed'], 405);
+    json_response(['error' => 'Method not allowed'], 405);
+
