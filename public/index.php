@@ -607,7 +607,6 @@
     style="text-transform:uppercase;"
   />
 </div>
- main
         </div>
         <div class="field" style="flex:1;">
           <label>匯率（→ TWD）</label>
@@ -626,7 +625,6 @@
           <button type="button" class="micro-btn" id="btn-recalc-twd">重新換算</button>
         </div>
       </div>
- main
         </div>
         <div class="hint">系統會用「外幣 × 匯率」預填，也可以覆寫。</div>
       </div>
@@ -962,7 +960,6 @@
     USD: { rate: 32.2, label: '美元' },
     JPY: { rate: 0.23, label: '日圓' }
   };
-main
   function normalizeCurrencyCode(raw) {
     if (!raw) return '';
     return String(raw).trim().toUpperCase().slice(0, 5);
@@ -1013,7 +1010,6 @@ main
       }
     }
   }
- main
   function getTwdUnitPrice(item) {
     if (!item) return null;
     const candidates = [item.unit_price_twd, item.unit_price];
@@ -1164,7 +1160,6 @@ main
       rateInput.value = '';
       return;
     }
- main
       }
       return;
     }
@@ -1232,7 +1227,6 @@ main
         true
       );
     }
-main
     }
   }
 
@@ -1356,7 +1350,6 @@ main
 
     camera = new THREE.PerspectiveCamera(38, w / h, 0.1, 200);
     camera.position.set(6.4, 6.8, 9.2);
-    main
     camera.lookAt(0, 0, 0);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.6);
@@ -1403,7 +1396,6 @@ main
     const target = 12; // world units，視角再貼近一些
     const scale = target / maxDim;
     return Math.min(Math.max(scale, 0.25), 3.5);
- main
   }
 
   function setShapeGeometry(shapeType, dims) {
@@ -1441,7 +1433,6 @@ main
 
     shapeMesh = new THREE.Mesh(geometry, mat);
     shapeMesh.rotation.set(-0.32, 0.55, 0.14);
- main
     scene.add(shapeMesh);
   }
 
@@ -1945,7 +1936,6 @@ main
     document.getElementById('f-qty').value = '1';
     document.getElementById('f-price-foreign').value = '';
     setCurrencySelection('CNY');
- main
     document.getElementById('f-exchange-rate').value = '';
     document.getElementById('f-price-twd').value = '';
     document.getElementById('f-note').value = '';
@@ -1982,7 +1972,6 @@ main
         currencyInput.value = normalizeCurrencyCode(item.currency_code);
       }
     }
-main
     document.getElementById('f-exchange-rate').value = item.exchange_rate != null ? item.exchange_rate : '';
     const twdValue = item.unit_price_twd != null ? item.unit_price_twd : (item.unit_price != null ? item.unit_price : '');
     document.getElementById('f-price-twd').value = twdValue;
@@ -2027,7 +2016,6 @@ main
     const vendor = document.getElementById('f-vendor').value.trim();
     const qty = Number(document.getElementById('f-qty').value);
     const foreignPriceStr = document.getElementById('f-price-foreign').value;
- main
     const exchangeRateStr = document.getElementById('f-exchange-rate').value;
     const priceTwdStr = document.getElementById('f-price-twd').value;
     const note = document.getElementById('f-note').value.trim();
@@ -2073,7 +2061,6 @@ main
         legacyCurrencyInput.value = currencyCode;
       }
     }
-main
     if (currencyCode && !/^[A-Z]{2,5}$/.test(currencyCode)) {
       err.textContent = '幣別請輸入 2~5 個英文字母（例如 USD）。';
       err.style.display = 'block';
@@ -2276,7 +2263,6 @@ main
         currencyInput.addEventListener('blur', handleCurrencyChange);
       }
     }
-main
     const exchangeInput = document.getElementById('f-exchange-rate');
     if (exchangeInput) {
       exchangeInput.addEventListener('input', () => {
