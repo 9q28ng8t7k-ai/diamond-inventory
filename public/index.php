@@ -6,6 +6,7 @@
   <meta charset="utf-8" />
   <title>鑽石原料管理（3D 視圖版）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="api-base" content="api/" />
   <style>
     * { box-sizing: border-box; }
     body {
@@ -1234,72 +1235,78 @@
   }
 
   // ===== 呼叫 API =====
+  const API_BASE = ((document.querySelector('meta[name="api-base"]')?.content || 'api/') + '').replace(/\/*$/, '/');
+
+  function apiUrl(path) {
+    return API_BASE + String(path).replace(/^\//, '');
+  }
+
   async function apiListItems() {
-    const res = await fetch('/api/items.php');
-    if (!res.ok) throw new Error('GET /api/items.php failed');
+    const res = await fetch(apiUrl('items.php'));
+    if (!res.ok) throw new Error('GET items failed');
     return await res.json();
   }
 
   async function apiSaveItem(payload) {
-    const res = await fetch('/api/items.php', {
+    const res = await fetch(apiUrl('items.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
       const txt = await res.text().catch(() => '');
-      throw new Error('POST /api/items.php failed: ' + txt);
+      throw new Error('POST items failed: ' + txt);
     }
     return await res.json();
   }
 
   async function apiDeleteItem(id) {
-    const res = await fetch('/api/items.php?id=' + encodeURIComponent(id), {
+    const res = await fetch(apiUrl('items.php?id=' + encodeURIComponent(id)), {
       method: 'DELETE'
     });
-    if (!res.ok) throw new Error('DELETE /api/items.php failed');
+    if (!res.ok) throw new Error('DELETE items failed');
     return await res.json();
   }
 
   async function apiListWithdrawals(itemId) {
-    const res = await fetch('/api/withdraw.php?item_id=' + encodeURIComponent(itemId));
-    if (!res.ok) throw new Error('GET /api/withdraw.php failed');
+    const res = await fetch(apiUrl('withdraw.php?item_id=' + encodeURIComponent(itemId)));
+    if (!res.ok) throw new Error('GET withdraw failed');
     return await res.json();
   }
 
   async function apiWithdraw(itemId, qty, purpose) {
-    const res = await fetch('/api/withdraw.php', {
+    const res = await fetch(apiUrl('withdraw.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ item_id: itemId, qty: qty, purpose: purpose })
     });
     if (!res.ok) {
       const txt = await res.text().catch(() => '');
-      throw new Error('POST /api/withdraw.php failed: ' + txt);
+      throw new Error('POST withdraw failed: ' + txt);
     }
     return await res.json();
   }
 
   async function apiUpdateWithdraw(id, qty, purpose) {
-    const res = await fetch('/api/withdraw.php', {
+    const res = await fetch(apiUrl('withdraw.php'), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: id, qty: qty, purpose: purpose })
     });
     if (!res.ok) {
       const txt = await res.text().catch(() => '');
-      throw new Error('PUT /api/withdraw.php failed: ' + txt);
+      throw new Error('PUT withdraw failed: ' + txt);
     }
     return await res.json();
   }
 
   async function apiDeleteWithdraw(id) {
-    const res = await fetch('/api/withdraw.php?id=' + encodeURIComponent(id), {
+    const res = await fetch(apiUrl('withdraw.php?id=' + encodeURIComponent(id)), {
       method: 'DELETE'
     });
     if (!res.ok) {
       const txt = await res.text().catch(() => '');
-      throw new Error('DELETE /api/withdraw.php failed: ' + txt);
+      throw new Error('DELETE withdraw failed: ' + txt);
     }
     return await res.json();
   }
