@@ -31,6 +31,14 @@ function ensure_latest_schema(PDO $db): void
 
     $columns = column_map($db, 'items');
     $requiredColumns = [
+        'size_str'      => "ALTER TABLE items ADD COLUMN size_str TEXT NOT NULL DEFAULT ''",
+        'length'        => "ALTER TABLE items ADD COLUMN length REAL NOT NULL DEFAULT 0",
+        'width'         => "ALTER TABLE items ADD COLUMN width REAL NOT NULL DEFAULT 0",
+        'height'        => "ALTER TABLE items ADD COLUMN height REAL NOT NULL DEFAULT 0",
+        'unit_price'    => "ALTER TABLE items ADD COLUMN unit_price REAL",
+        'note'          => "ALTER TABLE items ADD COLUMN note TEXT",
+        'created_at'    => "ALTER TABLE items ADD COLUMN created_at TEXT",
+        'updated_at'    => "ALTER TABLE items ADD COLUMN updated_at TEXT",
         'shape_type'    => "ALTER TABLE items ADD COLUMN shape_type TEXT NOT NULL DEFAULT 'box'",
         'purchase_date' => "ALTER TABLE items ADD COLUMN purchase_date TEXT",
         'material_type' => "ALTER TABLE items ADD COLUMN material_type TEXT",
@@ -49,6 +57,13 @@ function ensure_latest_schema(PDO $db): void
         }
     }
 
+    if (in_array('size_str', $added, true)) {
+        $db->exec("UPDATE items SET size_str = TRIM(length || 'x' || width || 'x' || height) WHERE size_str = ''");
+    }
+    if (in_array('created_at', $added, true) || in_array('updated_at', $added, true)) {
+        $now = gmdate('Y-m-d H:i:s');
+        $db->exec("UPDATE items SET created_at = COALESCE(created_at, '{$now}'), updated_at = COALESCE(updated_at, created_at, '{$now}')");
+    }
     if (in_array('is_archived', $added, true) || in_array('depleted_at', $added, true)) {
         $db->exec("UPDATE items SET is_archived = 1 WHERE qty <= 0");
         $db->exec("UPDATE items SET depleted_at = COALESCE(depleted_at, updated_at, created_at) WHERE is_archived = 1 AND depleted_at IS NULL");
