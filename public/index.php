@@ -437,7 +437,7 @@
       }
       html.push('</tbody></table>');
       wrap.innerHTML = html.join('');
-      wrap.querySelectorAll('tbody tr').forEach(tr => {
+main
         const id = Number(tr.dataset.id);
         tr.addEventListener('click', (e) => {
           if (e.target.dataset.act) return; // handled by buttons
@@ -447,25 +447,19 @@
           loadWithdrawals();
           renderItems();
         });
-        const editBtn = tr.querySelector('[data-act="edit"]');
-        if (editBtn) {
-          editBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const item = state.items.find(i => i.id === id);
-            startEdit(item);
-          });
-        }
-        const deleteBtn = tr.querySelector('[data-act="delete"]');
-        if (deleteBtn) {
-          deleteBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            if (!confirm('確定刪除此批次與其領料紀錄？')) return;
-            await fetch(apiBase + 'items.php?id=' + id, { method: 'DELETE' });
-            if (state.selected && state.selected.id === id) state.selected = null;
-            await loadItems();
-            updateDetail();
-          });
-        }
+        tr.querySelector('[data-act="edit"]').addEventListener('click', (e) => {
+          e.stopPropagation();
+          const item = state.items.find(i => i.id === id);
+          startEdit(item);
+        });
+        tr.querySelector('[data-act="delete"]').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!confirm('確定刪除此批次與其領料紀錄？')) return;
+          await fetch(apiBase + 'items.php?id=' + id, { method: 'DELETE' });
+          if (state.selected && state.selected.id === id) state.selected = null;
+          await loadItems();
+          updateDetail();
+        });
       });
     }
 
