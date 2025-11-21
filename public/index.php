@@ -85,6 +85,7 @@
     .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
     .inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; background: #1f2937; border-radius: 999px; font-size: 12px; color: #cbd5f5; }
+    input[type="radio"], input[type="checkbox"] { width: auto; }
     .btn {
       border: none; border-radius: 10px; padding: 10px 14px; font-weight: 700; cursor: pointer; color: #0b1221; background: #60a5fa; transition: transform .1s ease, box-shadow .2s ease;
     }
@@ -684,25 +685,60 @@
     }
 
     function drawBlueprint(item) {
-      const top = document.getElementById('blueprint-top').getContext('2d');
-      const side = document.getElementById('blueprint-side').getContext('2d');
-      [top, side].forEach(ctx => { ctx.clearRect(0,0,ctx.canvas.width, ctx.canvas.height); ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 2; ctx.font = '12px sans-serif'; ctx.fillStyle = '#cbd5f5'; });
+      const topCtx = document.getElementById('blueprint-top').getContext('2d');
+      const sideCtx = document.getElementById('blueprint-side').getContext('2d');
       const pad = 20;
+
+      function drawRect(ctx, w, h, labelXText, labelYText) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 2; ctx.font = '12px sans-serif'; ctx.fillStyle = '#cbd5f5';
+
+        const cw = ctx.canvas.width;
+        const ch = ctx.canvas.height;
+        const aw = cw - 2 * pad;
+        const ah = ch - 2 * pad;
+
+        const safeW = w || 1;
+        const safeH = h || 1;
+        const r = safeW / safeH;
+        const cr = aw / ah;
+
+        let dw, dh;
+        if (r > cr) {
+          dw = aw;
+          dh = aw / r;
+        } else {
+          dh = ah;
+          dw = ah * r;
+        }
+
+        const x = pad + (aw - dw) / 2;
+        const y = pad + (ah - dh) / 2;
+
+        ctx.strokeRect(x, y, dw, dh);
+
+        if (labelXText) ctx.fillText(labelXText + ' ' + w, x, y - 6);
+        if (labelYText) ctx.fillText(labelYText + ' ' + h, x, y + dh + 14);
+      }
+
       if (item.shape_type === 'cylinder') {
-        const r = Math.min((top.canvas.height-2*pad)/2, (top.canvas.width-2*pad)/2);
-        top.beginPath();
-        top.arc(top.canvas.width/2, top.canvas.height/2, r, 0, Math.PI*2);
-        top.stroke();
-        top.fillText('Ø ' + item.length, pad, pad);
-        side.strokeRect(pad, pad, side.canvas.width-2*pad, side.canvas.height-2*pad);
-        side.fillText('Ø ' + item.length, pad, pad-6 + 0);
-        side.fillText('H ' + item.height, pad, side.canvas.height - 8);
+        topCtx.clearRect(0, 0, topCtx.canvas.width, topCtx.canvas.height);
+        topCtx.strokeStyle = '#60a5fa'; topCtx.lineWidth = 2; topCtx.font = '12px sans-serif'; topCtx.fillStyle = '#cbd5f5';
+
+        const r = Math.min((topCtx.canvas.height - 2 * pad) / 2, (topCtx.canvas.width - 2 * pad) / 2);
+        topCtx.beginPath();
+        topCtx.arc(topCtx.canvas.width / 2, topCtx.canvas.height / 2, r, 0, Math.PI * 2);
+        topCtx.stroke();
+        topCtx.fillText('Ø ' + item.length, pad, pad);
+
+        // Side view: Rect (Diameter x Height)
+        drawRect(sideCtx, item.length, item.height, 'Ø', 'H');
       } else {
-        top.strokeRect(pad, pad, top.canvas.width-2*pad, top.canvas.height-2*pad);
-        top.fillText('L ' + item.length, pad, pad-6 + 0);
-        top.fillText('W ' + item.width, pad, top.canvas.height - 8);
-        side.strokeRect(pad, pad, side.canvas.width-2*pad, side.canvas.height-2*pad);
-        side.fillText('H ' + item.height, pad, side.canvas.height - 8);
+        // Box
+        // Top: L x W
+        drawRect(topCtx, item.length, item.width, 'L', 'W');
+        // Side: L x H
+        drawRect(sideCtx, item.length, item.height, 'L', 'H');
       }
     }
 
