@@ -437,7 +437,7 @@
       }
       html.push('</tbody></table>');
       wrap.innerHTML = html.join('');
-main
+      wrap.querySelectorAll('tbody tr').forEach(tr => {
         const id = Number(tr.dataset.id);
         tr.addEventListener('click', (e) => {
           if (e.target.dataset.act) return; // handled by buttons
@@ -639,14 +639,15 @@ main
       const hint = document.getElementById('rate-hint');
       hint.textContent = '查詢匯率中...';
       try {
-        const url = date ? `https://api.exchangerate.host/${date}?base=${currency}&symbols=TWD` : `https://api.exchangerate.host/latest?base=${currency}&symbols=TWD`;
+        // api.exchangerate.host requires key. Use open.er-api.com as free alternative (latest only)
+        const url = `https://open.er-api.com/v6/latest/${currency}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error('匯率 API 失敗');
         const data = await res.json();
         const rate = data.rates?.TWD;
         if (!rate) throw new Error('找不到匯率');
         form.exchange_rate.value = rate.toFixed(4);
-        hint.textContent = `來源：exchangerate.host (${data.date})`;
+        hint.textContent = `來源：open.er-api.com`;
         state.manualRate = false;
         recalcTwd();
       } catch (err) {
