@@ -437,7 +437,7 @@
       }
       html.push('</tbody></table>');
       wrap.innerHTML = html.join('');
-      wrap.querySelectorAll('tbody tr').forEach(tr => {
+main
         const id = Number(tr.dataset.id);
         tr.addEventListener('click', (e) => {
           if (e.target.dataset.act) return; // handled by buttons
