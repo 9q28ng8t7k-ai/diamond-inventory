@@ -107,7 +107,7 @@ function ensure_latest_schema(PDO $db): void
     $db->exec("UPDATE items SET created_at = COALESCE(created_at, '{$now}')");
     $db->exec("UPDATE items SET updated_at = COALESCE(updated_at, created_at, '{$now}')");
     $db->exec("UPDATE items SET size_str = CASE WHEN size_str = '' OR size_str IS NULL THEN TRIM(length || '×' || width || '×' || height) ELSE size_str END");
-    $db->exec("UPDATE items SET unit_price_twd = COALESCE(unit_price_twd, unit_price_foreign * exchange_rate, unit_price_twd)");
+    $db->exec("UPDATE items SET unit_price_twd = COALESCE(unit_price_twd, unit_price_foreign * exchange_rate, unit_price)");
     $db->exec("UPDATE items SET is_archived = CASE WHEN qty <= 0 THEN 1 ELSE is_archived END");
     $db->exec("UPDATE items SET depleted_at = CASE WHEN is_archived = 1 AND qty <= 0 THEN COALESCE(depleted_at, updated_at) ELSE depleted_at END");
 }
