@@ -687,59 +687,119 @@
     function drawBlueprint(item) {
       const topCtx = document.getElementById('blueprint-top').getContext('2d');
       const sideCtx = document.getElementById('blueprint-side').getContext('2d');
-      const pad = 20;
+      const pad = 30; // Increased padding for dimension lines
 
-      function drawRect(ctx, w, h, labelXText, labelYText) {
+      // Clear both canvases
+      [topCtx, sideCtx].forEach(ctx => {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 2; ctx.font = '12px sans-serif'; ctx.fillStyle = '#cbd5f5';
+        ctx.strokeStyle = '#60a5fa';
+        ctx.lineWidth = 2;
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#cbd5f5';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+      });
 
-        const cw = ctx.canvas.width;
-        const ch = ctx.canvas.height;
-        const aw = cw - 2 * pad;
-        const ah = ch - 2 * pad;
+      // Get dimensions
+      const len = parseFloat(item.length) || 0;
+      const width = item.shape_type === 'cylinder' ? len : (parseFloat(item.width) || 0);
+      const height = parseFloat(item.height) || 0;
 
-        const safeW = w || 1;
-        const safeH = h || 1;
-        const r = safeW / safeH;
-        const cr = aw / ah;
+      // Calculate Scale to fit BOTH views with the same scale factor (so Length aligns)
+      const cw = topCtx.canvas.width;
+      const ch = topCtx.canvas.height;
+      const availW = cw - 2 * pad;
+      const availH = ch - 2 * pad;
 
-        let dw, dh;
-        if (r > cr) {
-          dw = aw;
-          dh = aw / r;
-        } else {
-          dh = ah;
-          dw = ah * r;
+      // Top View (L x W)
+      // ScaleX = availW / L, ScaleY = availH / W
+      const scaleTopX = len > 0 ? availW / len : 1;
+      const scaleTopY = width > 0 ? availH / width : 1;
+      const scaleTop = Math.min(scaleTopX, scaleTopY);
+
+      // Side View (L x H)
+      // ScaleX = availW / L, ScaleY = availH / H
+      const scaleSideX = len > 0 ? availW / len : 1;
+      const scaleSideY = height > 0 ? availH / height : 1;
+      const scaleSide = Math.min(scaleSideX, scaleSideY);
+
+      // Unified Scale
+      let scale = Math.min(scaleTop, scaleSide);
+      if (scale === Infinity) scale = 1;
+
+      // Helper to draw dimension lines
+      function drawDim(ctx, x1, y1, x2, y2, text, offset) {
+        ctx.save();
+        ctx.strokeStyle = '#6b7280';
+        ctx.fillStyle = '#cbd5f5';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+
+        let tx, ty;
+        const arrowSize = 4;
+
+        if (y1 === y2) { // Horizontal dimension
+          const y = y1 + offset;
+          ctx.moveTo(x1, y1 + (offset > 0 ? 2 : -2)); ctx.lineTo(x1, y);
+          ctx.moveTo(x2, y2 + (offset > 0 ? 2 : -2)); ctx.lineTo(x2, y);
+          ctx.moveTo(x1, y); ctx.lineTo(x2, y);
+
+          // Arrows
+          ctx.moveTo(x1 + arrowSize, y - arrowSize/2); ctx.lineTo(x1, y); ctx.lineTo(x1 + arrowSize, y + arrowSize/2);
+          ctx.moveTo(x2 - arrowSize, y - arrowSize/2); ctx.lineTo(x2, y); ctx.lineTo(x2 - arrowSize, y + arrowSize/2);
+
+          tx = (x1 + x2) / 2;
+          ty = y + (offset > 0 ? 12 : -12);
+        } else { // Vertical dimension
+          const x = x1 + offset;
+          ctx.moveTo(x1 + (offset > 0 ? 2 : -2), y1); ctx.lineTo(x, y1);
+          ctx.moveTo(x2 + (offset > 0 ? 2 : -2), y2); ctx.lineTo(x, y2);
+          ctx.moveTo(x, y1); ctx.lineTo(x, y2);
+
+          // Arrows
+          ctx.moveTo(x - arrowSize/2, y1 + arrowSize); ctx.lineTo(x, y1); ctx.lineTo(x + arrowSize/2, y1 + arrowSize);
+          ctx.moveTo(x - arrowSize/2, y2 - arrowSize); ctx.lineTo(x, y2); ctx.lineTo(x + arrowSize/2, y2 - arrowSize);
+
+          tx = x + (offset > 0 ? 16 : -16);
+          ty = (y1 + y2) / 2;
         }
 
-        const x = pad + (aw - dw) / 2;
-        const y = pad + (ah - dh) / 2;
-
-        ctx.strokeRect(x, y, dw, dh);
-
-        if (labelXText) ctx.fillText(labelXText + ' ' + w, x, y - 6);
-        if (labelYText) ctx.fillText(labelYText + ' ' + h, x, y + dh + 14);
+        ctx.stroke();
+        ctx.fillText(text, tx, ty);
+        ctx.restore();
       }
+
+      // Draw Top View
+      const dwTop = len * scale;
+      const dhTop = width * scale;
+      const xTop = (cw - dwTop) / 2;
+      const yTop = (ch - dhTop) / 2;
 
       if (item.shape_type === 'cylinder') {
-        topCtx.clearRect(0, 0, topCtx.canvas.width, topCtx.canvas.height);
-        topCtx.strokeStyle = '#60a5fa'; topCtx.lineWidth = 2; topCtx.font = '12px sans-serif'; topCtx.fillStyle = '#cbd5f5';
-
-        const r = Math.min((topCtx.canvas.height - 2 * pad) / 2, (topCtx.canvas.width - 2 * pad) / 2);
         topCtx.beginPath();
-        topCtx.arc(topCtx.canvas.width / 2, topCtx.canvas.height / 2, r, 0, Math.PI * 2);
+        topCtx.arc(cw / 2, ch / 2, dwTop / 2, 0, Math.PI * 2);
         topCtx.stroke();
-        topCtx.fillText('Ø ' + item.length, pad, pad);
-
-        // Side view: Rect (Diameter x Height)
-        drawRect(sideCtx, item.length, item.height, 'Ø', 'H');
+        // Diameter dim
+        drawDim(topCtx, xTop, ch/2, xTop + dwTop, ch/2, 'Ø ' + len, -dhTop/2 - 10);
       } else {
-        // Box
-        // Top: L x W
-        drawRect(topCtx, item.length, item.width, 'L', 'W');
-        // Side: L x H
-        drawRect(sideCtx, item.length, item.height, 'L', 'H');
+        topCtx.strokeRect(xTop, yTop, dwTop, dhTop);
+        drawDim(topCtx, xTop, yTop, xTop + dwTop, yTop, 'L ' + len, -10);
+        drawDim(topCtx, xTop, yTop, xTop, yTop + dhTop, 'W ' + width, -10);
       }
+
+      // Draw Side View
+      const dwSide = len * scale;
+      const dhSide = height * scale;
+      const xSide = (cw - dwSide) / 2;
+      const ySide = (ch - dhSide) / 2;
+
+      sideCtx.strokeRect(xSide, ySide, dwSide, dhSide);
+      if (item.shape_type === 'cylinder') {
+        drawDim(sideCtx, xSide, ySide, xSide + dwSide, ySide, 'Ø ' + len, -10);
+      } else {
+        drawDim(sideCtx, xSide, ySide, xSide + dwSide, ySide, 'L ' + len, -10);
+      }
+      drawDim(sideCtx, xSide, ySide, xSide, ySide + dhSide, 'H ' + height, -10);
     }
 
     let renderer, scene, camera, mesh;
