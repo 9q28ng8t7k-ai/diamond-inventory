@@ -356,11 +356,17 @@
       if (!payload) return;
       try {
         const res = await fetch(apiBase + 'items.php', { method: 'POST', body: JSON.stringify(payload) });
-        const data = await res.json();
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          throw new Error('API 回傳格式錯誤 (可能為 404 或伺服器錯誤)');
+        }
         if (!res.ok) throw new Error(data.error || 'submit failed');
         await loadItems();
         resetForm();
       } catch (err) {
+        console.error(err);
         document.getElementById('form-error').textContent = err.message;
       }
     });
