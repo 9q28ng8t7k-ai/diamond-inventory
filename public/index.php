@@ -700,10 +700,26 @@
         ctx.textBaseline = 'middle';
       });
 
-      // Get dimensions
+      // Get dimensions for the selected item
       const len = parseFloat(item.length) || 0;
       const width = item.shape_type === 'cylinder' ? len : (parseFloat(item.width) || 0);
       const height = parseFloat(item.height) || 0;
+
+      // Derive a consistent scale based on the largest dimensions in the dataset,
+      // so the blueprint visuals actually change when size changes.
+      let maxLen = 0, maxWidth = 0, maxHeight = 0;
+      const source = state.items.length ? state.items : [item];
+      for (const it of source) {
+        const l = parseFloat(it.length) || 0;
+        const w = (it.shape_type === 'cylinder' ? l : (parseFloat(it.width) || 0));
+        const h = parseFloat(it.height) || 0;
+        maxLen = Math.max(maxLen, l);
+        maxWidth = Math.max(maxWidth, w);
+        maxHeight = Math.max(maxHeight, h);
+      }
+      maxLen = maxLen || 1;
+      maxWidth = maxWidth || 1;
+      maxHeight = maxHeight || 1;
 
       // Calculate Scale to fit BOTH views with the same scale factor (so Length aligns)
       const cw = topCtx.canvas.width;
@@ -711,21 +727,15 @@
       const availW = cw - 2 * pad;
       const availH = ch - 2 * pad;
 
-      // Top View (L x W)
-      // ScaleX = availW / L, ScaleY = availH / W
-      const scaleTopX = len > 0 ? availW / len : 1;
-      const scaleTopY = width > 0 ? availH / width : 1;
-      const scaleTop = Math.min(scaleTopX, scaleTopY);
+      // Top View (L x W) based on global maxima
+      const scaleTop = Math.min(availW / maxLen, availH / maxWidth);
 
-      // Side View (L x H)
-      // ScaleX = availW / L, ScaleY = availH / H
-      const scaleSideX = len > 0 ? availW / len : 1;
-      const scaleSideY = height > 0 ? availH / height : 1;
-      const scaleSide = Math.min(scaleSideX, scaleSideY);
+      // Side View (L x H) based on global maxima
+      const scaleSide = Math.min(availW / maxLen, availH / maxHeight);
 
       // Unified Scale
       let scale = Math.min(scaleTop, scaleSide);
-      if (scale === Infinity) scale = 1;
+      if (!Number.isFinite(scale) || scale <= 0) scale = 1;
 
       // Helper to draw dimension lines
       function drawDim(ctx, x1, y1, x2, y2, text, offset) {
