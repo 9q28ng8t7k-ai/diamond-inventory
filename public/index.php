@@ -705,21 +705,11 @@
       const width = item.shape_type === 'cylinder' ? len : (parseFloat(item.width) || 0);
       const height = parseFloat(item.height) || 0;
 
-      // Derive a consistent scale based on the largest dimensions in the dataset,
-      // so the blueprint visuals actually change when size changes.
-      let maxLen = 0, maxWidth = 0, maxHeight = 0;
-      const source = state.items.length ? state.items : [item];
-      for (const it of source) {
-        const l = parseFloat(it.length) || 0;
-        const w = (it.shape_type === 'cylinder' ? l : (parseFloat(it.width) || 0));
-        const h = parseFloat(it.height) || 0;
-        maxLen = Math.max(maxLen, l);
-        maxWidth = Math.max(maxWidth, w);
-        maxHeight = Math.max(maxHeight, h);
-      }
-      maxLen = maxLen || 1;
-      maxWidth = maxWidth || 1;
-      maxHeight = maxHeight || 1;
+      // Calculate scale based on the currently selected item so the blueprint visibly
+      // reflects its dimensions instead of being dominated by other batches.
+      const maxLen = len || 1;
+      const maxWidth = width || 1;
+      const maxHeight = height || 1;
 
       // Calculate Scale to fit BOTH views with the same scale factor (so Length aligns)
       const cw = topCtx.canvas.width;
@@ -730,7 +720,7 @@
       // Top View (L x W) based on global maxima
       const scaleTop = Math.min(availW / maxLen, availH / maxWidth);
 
-      // Side View (L x H) based on global maxima
+      // Side View (L x H) based on selected item
       const scaleSide = Math.min(availW / maxLen, availH / maxHeight);
 
       // Unified Scale
