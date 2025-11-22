@@ -705,11 +705,30 @@
       const width = item.shape_type === 'cylinder' ? len : (parseFloat(item.width) || 0);
       const height = parseFloat(item.height) || 0;
 
-      // Calculate scale based on the currently selected item so the blueprint visibly
-      // reflects its dimensions instead of being dominated by other batches.
-      const maxLen = len || 1;
-      const maxWidth = width || 1;
-      const maxHeight = height || 1;
+      // Calculate max dimensions from all active items to use a unified scale
+      let maxLen = 0;
+      let maxWidth = 0;
+      let maxHeight = 0;
+
+      // Use active items to determine the global scale
+      const activeItems = state.items.filter(i => Number(i.is_archived) === 0);
+      // Always include the current item in the max calculation to avoid overflow/clipping
+      // if the current item is larger than anything in the history (e.g. creating a new large item)
+      const itemsToScale = [...activeItems, item];
+
+      itemsToScale.forEach(i => {
+        const l = parseFloat(i.length) || 0;
+        const w = i.shape_type === 'cylinder' ? l : (parseFloat(i.width) || 0);
+        const h = parseFloat(i.height) || 0;
+        if (l > maxLen) maxLen = l;
+        if (w > maxWidth) maxWidth = w;
+        if (h > maxHeight) maxHeight = h;
+      });
+
+      // Avoid zero dimensions
+      if (maxLen === 0) maxLen = 1;
+      if (maxWidth === 0) maxWidth = 1;
+      if (maxHeight === 0) maxHeight = 1;
 
       // Calculate Scale to fit BOTH views with the same scale factor (so Length aligns)
       const cw = topCtx.canvas.width;
